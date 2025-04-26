@@ -89,7 +89,7 @@ impl<'a> Parser<'a> {
 
     fn expression(&mut self) -> Expr {
         let mut node = self.primary();
-
+    
         loop {
             match self.current_token {
                 Token::Add => {
@@ -124,15 +124,47 @@ impl<'a> Parser<'a> {
                         right: Box::new(self.primary()),
                     };
                 }
+                Token::Equal => {
+                    self.next();
+                    node = Expr::BinaryOp {
+                        op: BinOp::Equal,
+                        left: Box::new(node),
+                        right: Box::new(self.primary()),
+                    };
+                }
+                Token::NotEqual => {
+                    self.next();
+                    node = Expr::BinaryOp {
+                        op: BinOp::NotEqual,
+                        left: Box::new(node),
+                        right: Box::new(self.primary()),
+                    };
+                }
+                Token::LessThan => {
+                    self.next();
+                    node = Expr::BinaryOp {
+                        op: BinOp::LessThan,
+                        left: Box::new(node),
+                        right: Box::new(self.primary()),
+                    };
+                }
+                Token::GreaterThan => {
+                    self.next();
+                    node = Expr::BinaryOp {
+                        op: BinOp::GreaterThan,
+                        left: Box::new(node),
+                        right: Box::new(self.primary()),
+                    };
+                }
                 _ => {
                     break;
                 }
             }
         }
-
+    
         node
     }
-
+    
     fn primary(&mut self) -> Expr {
         match &self.current_token {
             Token::Num(n) => {

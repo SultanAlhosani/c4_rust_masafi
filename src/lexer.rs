@@ -16,10 +16,10 @@ pub enum Token {
     Sub,
     Mul,
     Div,
-    Less,
-    Greater,
-    Equal,
-    NotEqual,
+    Equal,     
+    NotEqual,   
+    LessThan,   
+    GreaterThan, 
     Eof,
     Unknown(char),
 }
@@ -71,8 +71,8 @@ impl Lexer {
                         Token::Unknown('!')
                     }
                 }
-                '<' => { self.advance(); Token::Less }
-                '>' => { self.advance(); Token::Greater }
+                '<' => { self.advance(); Token::LessThan }
+                '>' => { self.advance(); Token::GreaterThan }
                 _ => {
                     self.advance();
                     Token::Unknown(ch)

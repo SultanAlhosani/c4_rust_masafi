@@ -10,8 +10,10 @@ use ast::Stmt;
 
 fn main() {
     let source_code = "
-    while (1) return 5;
+    if (2 < 2) return 5; else return 10;
 ";
+
+
 
     let lexer = Lexer::new(source_code);
     let mut vm = Vm::new();

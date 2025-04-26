@@ -53,6 +53,10 @@ impl Vm {
                     BinOp::Sub => l - r,
                     BinOp::Mul => l * r,
                     BinOp::Div => l / r,
+                    BinOp::Equal => if l == r { 1 } else { 0 },
+                    BinOp::NotEqual => if l != r { 1 } else { 0 },
+                    BinOp::LessThan => if l < r { 1 } else { 0 },
+                    BinOp::GreaterThan => if l > r { 1 } else { 0 },
                 }
             }
         }

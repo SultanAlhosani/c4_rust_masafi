@@ -15,7 +15,12 @@ pub enum BinOp {
     Sub,
     Mul,
     Div,
+    Equal,       // ==
+    NotEqual,    // !=
+    LessThan,    // <
+    GreaterThan, // >
 }
+
 
 #[derive(Debug, Clone)]
 
