@@ -9,11 +9,9 @@ use vm::Vm;
 
 fn main() {
     let source_code = "
-    let x = 0;
-    let y = 10;
-    if (true) { x = x + 5; }
-    while (x < 10) { x = x + 1; }
-    return x + y;
+    let a = 'A';
+    let b = 'B';
+    return a + b;
     ";
 
     // Initialize components

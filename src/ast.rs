@@ -7,7 +7,8 @@ pub enum Expr {
         left: Box<Expr>,
         right: Box<Expr>,
     },
-    Boolean(bool), // <-- ADD THIS LINE
+    Boolean(bool), 
+    Char(char),  
 }
 
 
@@ -29,7 +30,7 @@ pub enum Stmt {
     Return(Expr),
     If { condition: Expr, then_branch: Box<Stmt>, else_branch: Option<Box<Stmt>> },
     While { condition: Expr, body: Box<Stmt> },
-    Let { name: String, value: Expr },    // <-- this line
+    Let { name: String, value: Expr },   
     Assign { name: String, value: Expr },
     Block(Vec<Stmt>),
 }

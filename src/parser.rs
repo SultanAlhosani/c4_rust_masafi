@@ -34,15 +34,15 @@ impl<'a> Parser<'a> {
     fn statement(&mut self) -> Stmt {
         match &self.current_token {
             Token::Return => {
-                self.next(); // consume 'return'
+                self.next();
                 let expr = self.expression();
                 if self.current_token == Token::Semicolon {
-                    self.next(); // consume optional ';'
+                    self.next();
                 }
                 Stmt::Return(expr)
             }
             Token::Let => {
-                self.next(); // consume 'let'
+                self.next();
                 let name = match &self.current_token {
                     Token::Identifier(n) => {
                         let n = n.clone();
@@ -54,28 +54,28 @@ impl<'a> Parser<'a> {
                 if self.current_token != Token::Assign {
                     panic!("Expected '=' after identifier");
                 }
-                self.next(); // consume '='
+                self.next();
                 let value = self.expression();
                 if self.current_token == Token::Semicolon {
-                    self.next(); // consume optional ';'
+                    self.next();
                 }
                 Stmt::Let { name, value }
             }
             Token::Identifier(name) => {
                 let var_name = name.clone();
-                self.next(); // consume identifier
+                self.next();
                 if self.current_token != Token::Assign {
                     panic!("Expected '=' after identifier");
                 }
-                self.next(); // consume '='
+                self.next();
                 let value = self.expression();
                 if self.current_token == Token::Semicolon {
-                    self.next(); // consume optional ';'
+                    self.next();
                 }
                 Stmt::Assign { name: var_name, value }
             }
             Token::If => {
-                self.next(); // consume 'if'
+                self.next();
                 if self.current_token != Token::OpenParen {
                     panic!("Expected '(' after 'if'");
                 }
@@ -95,36 +95,31 @@ impl<'a> Parser<'a> {
                 Stmt::If { condition, then_branch, else_branch }
             }
             Token::While => {
-                self.next(); // consume 'while'
+                self.next();
                 if self.current_token != Token::OpenParen {
                     panic!("Expected '(' after 'while'");
                 }
                 self.next();
                 let condition = self.expression();
                 if self.current_token != Token::CloseParen {
-                    panic!("Expected ')' after while condition");
+                    panic!("Expected ')' after condition");
                 }
                 self.next();
                 let body = Box::new(self.statement());
                 Stmt::While { condition, body }
             }
             Token::OpenBrace => {
-                self.block() // <-- If it's '{', we enter block parsing
+                self.block()
             }
             _ => {
                 panic!("Unexpected token: {:?}", self.current_token);
             }
         }
     }
-    
-    
-    
-    
-    
 
     fn expression(&mut self) -> Expr {
-        let mut node = self.primary(); // start with a number, variable, boolean, or ( )
-    
+        let mut node = self.primary();
+
         loop {
             match self.current_token {
                 Token::Add => {
@@ -191,13 +186,12 @@ impl<'a> Parser<'a> {
                         right: Box::new(self.primary()),
                     };
                 }
-                _ => break, // No more operators? expression finished.
+                _ => break,
             }
         }
-    
+
         node
     }
-    
 
     fn primary(&mut self) -> Expr {
         match &self.current_token {
@@ -214,6 +208,11 @@ impl<'a> Parser<'a> {
                 self.next();
                 Expr::Boolean(false)
             }
+            Token::Char(c) => { // <-- Added here
+                let ch = *c;
+                self.next();
+                Expr::Char(ch)
+            }
             Token::Identifier(name) => {
                 let var_name = name.clone();
                 self.next();
@@ -221,7 +220,7 @@ impl<'a> Parser<'a> {
             }
             Token::OpenParen => {
                 self.next();
-                let expr = self.expression(); // <--- full expression, not just one number!
+                let expr = self.expression();
                 if self.current_token != Token::CloseParen {
                     panic!("Expected ')' after expression");
                 }
@@ -233,23 +232,21 @@ impl<'a> Parser<'a> {
             }
         }
     }
-    
-    
 
     fn block(&mut self) -> Stmt {
         if self.current_token != Token::OpenBrace {
-            return self.statement(); // If no `{`, just parse single statement
+            return self.statement();
         }
-    
-        self.next(); // consume '{'
+
+        self.next();
         let mut statements = Vec::new();
-    
+
         while self.current_token != Token::CloseBrace {
             statements.push(self.statement());
         }
-    
-        self.next(); // consume '}'
-    
+
+        self.next();
+
         Stmt::Block(statements)
     }
 }

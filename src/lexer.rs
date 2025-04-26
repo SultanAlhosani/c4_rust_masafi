@@ -25,6 +25,7 @@ pub enum Token {
     Unknown(char),
     True,
     False,
+    Char(char),
 }
 
 pub struct Lexer {
@@ -42,9 +43,27 @@ impl Lexer {
 
     pub fn next_token(&mut self) -> Token {
         self.skip_whitespace();
-
+    
         if let Some(ch) = self.current_char() {
             match ch {
+                '\'' => { // <-- new case for characters
+                    self.advance(); // consume opening '
+    
+                    let ch = match self.current_char() {
+                        Some(c) => c,
+                        None => panic!("Unterminated character literal"),
+                    };
+    
+                    self.advance(); // consume the character
+    
+                    if self.current_char() != Some('\'') {
+                        panic!("Expected closing single quote after character");
+                    }
+    
+                    self.advance(); // consume closing '
+    
+                    Token::Char(ch)
+                }
                 '0'..='9' => self.number(),
                 'a'..='z' | 'A'..='Z' | '_' => self.identifier_or_keyword(),
                 '+' => { self.advance(); Token::Add }
@@ -85,6 +104,7 @@ impl Lexer {
             Token::Eof
         }
     }
+    
 
     fn number(&mut self) -> Token {
         let mut value = 0;
