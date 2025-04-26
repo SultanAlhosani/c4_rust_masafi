@@ -5,15 +5,13 @@ Return statements
 arithmetic operations/exprssions (+,/,*,-)
 Parenthesies in expressiosn
 if statemenets if(expression)
-
+while loops    while(expression)
+comparison operators (==, !=, <, etc..)
+variables      int x = 5;
+multiple statements
 
 Functionalities remaining to implement
-
-while loops    while(expression)
-variables      int x = 5;
 function defenition
-multiple statements
-comparison operators (==, !=, <, etc..)
 type system (int, boolean etc..)
 self-hosting
 memory management.
