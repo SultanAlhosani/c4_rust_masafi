@@ -9,9 +9,9 @@ while loops    while(expression)
 comparison operators (==, !=, <, etc..)
 variables      int x = 5;
 multiple statements
+type system (int, boolean etc..)
 
 Functionalities remaining to implement
 function defenition
-type system (int, boolean etc..)
 self-hosting
 memory management.
