@@ -1,5 +1,5 @@
 use crate::lexer::{Lexer, Token};
-use crate::ast::{Stmt, Expr, BinOp};
+use crate::ast::{Expr, Stmt};
 use crate::vm::Vm;
 
 pub struct Parser<'a> {
@@ -12,11 +12,15 @@ impl<'a> Parser<'a> {
     pub fn new(lexer: Lexer, vm: &'a mut Vm) -> Self {
         let mut parser = Self {
             lexer,
-            current_token: Token::Eof,
+            current_token: Token::Eof, // Placeholder
             vm,
         };
         parser.next(); // Load the first token
         parser
+    }
+
+    pub fn next(&mut self) {
+        self.current_token = self.lexer.next_token();
     }
 
     pub fn parse(&mut self) -> Vec<Stmt> {
@@ -30,54 +34,83 @@ impl<'a> Parser<'a> {
     fn statement(&mut self) -> Stmt {
         match &self.current_token {
             Token::Return => {
-                self.next();
+                self.next(); // consume 'return'
                 let expr = self.expression();
                 if self.current_token == Token::Semicolon {
-                    self.next();
+                    self.next(); // consume ';'
                 } else {
-                    panic!("Expected ';' after return value");
+                    panic!("Expected ';' after return");
                 }
                 Stmt::Return(expr)
             }
             Token::If => {
-                self.next();
+                self.next(); // consume 'if'
                 if self.current_token != Token::OpenParen {
-                    panic!("Expected '(' after 'if'");
+                    panic!("Expected '(' after if");
                 }
                 self.next();
                 let condition = self.expression();
                 if self.current_token != Token::CloseParen {
-                    panic!("Expected ')' after if condition");
+                    panic!("Expected ')' after condition");
                 }
                 self.next();
-                let then_branch = Box::new(self.statement());
-    
-                let else_branch = if let Token::Else = self.current_token {
+                let then_branch = Box::new(self.block()); // block!
+                let else_branch = if self.current_token == Token::Else {
                     self.next();
-                    Some(Box::new(self.statement()))
+                    Some(Box::new(self.block())) // block!
                 } else {
                     None
                 };
-    
-                Stmt::If {
-                    condition,
-                    then_branch,
-                    else_branch,
-                }
+                Stmt::If { condition, then_branch, else_branch }
             }
             Token::While => {
                 self.next(); // consume 'while'
                 if self.current_token != Token::OpenParen {
-                    panic!("Expected '(' after 'while'");
+                    panic!("Expected '(' after while");
                 }
-                self.next(); // consume '('
+                self.next();
                 let condition = self.expression();
                 if self.current_token != Token::CloseParen {
-                    panic!("Expected ')' after while condition");
+                    panic!("Expected ')' after condition");
                 }
-                self.next(); // consume ')'
-                let body = Box::new(self.statement());
+                self.next();
+                let body = Box::new(self.block()); // block!
                 Stmt::While { condition, body }
+            }
+            Token::Let => {
+                self.next(); // consume 'let'
+                let var_name = if let Token::Identifier(name) = &self.current_token {
+                    name.clone()
+                } else {
+                    panic!("Expected identifier after 'let'");
+                };
+                self.next(); // consume identifier
+                if self.current_token != Token::Assign {
+                    panic!("Expected '=' after identifier");
+                }
+                self.next(); // consume '='
+                let value = self.expression();
+                if self.current_token == Token::Semicolon {
+                    self.next(); // consume ';'
+                } else {
+                    panic!("Expected ';' after let");
+                }
+                Stmt::Let { name: var_name, value }
+            }
+            Token::Identifier(name) => {
+                let var_name = name.clone();
+                self.next(); // consume identifier
+                if self.current_token != Token::Assign {
+                    panic!("Expected '=' after identifier");
+                }
+                self.next(); // consume '='
+                let value = self.expression();
+                if self.current_token == Token::Semicolon {
+                    self.next(); // consume ';'
+                } else {
+                    panic!("Expected ';' after assignment");
+                }
+                Stmt::Assign { name: var_name, value }
             }
             _ => {
                 panic!("Unexpected token: {:?}", self.current_token);
@@ -89,13 +122,13 @@ impl<'a> Parser<'a> {
 
     fn expression(&mut self) -> Expr {
         let mut node = self.primary();
-    
+
         loop {
             match self.current_token {
                 Token::Add => {
                     self.next();
                     node = Expr::BinaryOp {
-                        op: BinOp::Add,
+                        op: crate::ast::BinOp::Add,
                         left: Box::new(node),
                         right: Box::new(self.primary()),
                     };
@@ -103,7 +136,7 @@ impl<'a> Parser<'a> {
                 Token::Sub => {
                     self.next();
                     node = Expr::BinaryOp {
-                        op: BinOp::Sub,
+                        op: crate::ast::BinOp::Sub,
                         left: Box::new(node),
                         right: Box::new(self.primary()),
                     };
@@ -111,7 +144,7 @@ impl<'a> Parser<'a> {
                 Token::Mul => {
                     self.next();
                     node = Expr::BinaryOp {
-                        op: BinOp::Mul,
+                        op: crate::ast::BinOp::Mul,
                         left: Box::new(node),
                         right: Box::new(self.primary()),
                     };
@@ -119,7 +152,7 @@ impl<'a> Parser<'a> {
                 Token::Div => {
                     self.next();
                     node = Expr::BinaryOp {
-                        op: BinOp::Div,
+                        op: crate::ast::BinOp::Div,
                         left: Box::new(node),
                         right: Box::new(self.primary()),
                     };
@@ -127,7 +160,7 @@ impl<'a> Parser<'a> {
                 Token::Equal => {
                     self.next();
                     node = Expr::BinaryOp {
-                        op: BinOp::Equal,
+                        op: crate::ast::BinOp::Equal,
                         left: Box::new(node),
                         right: Box::new(self.primary()),
                     };
@@ -135,7 +168,7 @@ impl<'a> Parser<'a> {
                 Token::NotEqual => {
                     self.next();
                     node = Expr::BinaryOp {
-                        op: BinOp::NotEqual,
+                        op: crate::ast::BinOp::NotEqual,
                         left: Box::new(node),
                         right: Box::new(self.primary()),
                     };
@@ -143,7 +176,7 @@ impl<'a> Parser<'a> {
                 Token::LessThan => {
                     self.next();
                     node = Expr::BinaryOp {
-                        op: BinOp::LessThan,
+                        op: crate::ast::BinOp::LessThan,
                         left: Box::new(node),
                         right: Box::new(self.primary()),
                     };
@@ -151,44 +184,60 @@ impl<'a> Parser<'a> {
                 Token::GreaterThan => {
                     self.next();
                     node = Expr::BinaryOp {
-                        op: BinOp::GreaterThan,
+                        op: crate::ast::BinOp::GreaterThan,
                         left: Box::new(node),
                         right: Box::new(self.primary()),
                     };
                 }
-                _ => {
-                    break;
-                }
+                _ => break,
             }
         }
-    
+
         node
     }
-    
+
     fn primary(&mut self) -> Expr {
         match &self.current_token {
             Token::Num(n) => {
-                let value = *n;
+                let val = *n;
                 self.next();
-                Expr::Number(value)
+                Expr::Number(val)
+            }
+            Token::Identifier(name) => {
+                let var_name = name.clone();
+                self.next();
+                Expr::Variable(var_name)
             }
             Token::OpenParen => {
-                self.next(); // consume '('
+                self.next();
                 let expr = self.expression();
                 if self.current_token == Token::CloseParen {
-                    self.next(); // consume ')'
+                    self.next();
                     expr
                 } else {
                     panic!("Expected closing parenthesis");
                 }
             }
             _ => {
-                panic!("Unexpected token in expression: {:?}", self.current_token);
+                panic!("Unexpected token in primary: {:?}", self.current_token);
             }
         }
     }
 
-    fn next(&mut self) {
-        self.current_token = self.lexer.next_token();
+    fn block(&mut self) -> Stmt {
+        if self.current_token != Token::OpenBrace {
+            return self.statement(); // If no `{`, just parse single statement
+        }
+    
+        self.next(); // consume '{'
+        let mut statements = Vec::new();
+    
+        while self.current_token != Token::CloseBrace {
+            statements.push(self.statement());
+        }
+    
+        self.next(); // consume '}'
+    
+        Stmt::Block(statements)
     }
 }

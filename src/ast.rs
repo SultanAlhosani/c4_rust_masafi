@@ -1,5 +1,4 @@
 #[derive(Debug, Clone)]
-
 pub enum Expr {
     Number(i32),
     BinaryOp {
@@ -7,6 +6,7 @@ pub enum Expr {
         left: Box<Expr>,
         right: Box<Expr>,
     },
+    Variable(String), // <-- New! To store x, y, z
 }
 
 #[derive(Debug, Clone)]
@@ -21,9 +21,7 @@ pub enum BinOp {
     GreaterThan, // >
 }
 
-
 #[derive(Debug, Clone)]
-
 pub enum Stmt {
     Return(Expr),
     If {
@@ -35,7 +33,17 @@ pub enum Stmt {
         condition: Expr,
         body: Box<Stmt>,
     },
+    Let {
+        name: String,
+        value: Expr,
+    },
+    Assign {
+        name: String,
+        value: Expr,
+    },
+    Block(Vec<Stmt>), // <-- NEW!! Block of statements
 }
+
 
 
 

@@ -1,25 +1,26 @@
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Token {
     Num(i32),
-    Id(String),
+    Identifier(String),
     Return,
     If,
     Else,
     While,
+    Let,              // <-- Added Let keyword
     OpenParen,
     CloseParen,
     OpenBrace,
     CloseBrace,
     Semicolon,
-    Assign,
+    Assign,           // (=)
     Add,
     Sub,
     Mul,
     Div,
-    Equal,     
-    NotEqual,   
-    LessThan,   
-    GreaterThan, 
+    Equal,            // (==)
+    NotEqual,         // (!=)
+    LessThan,         // (<)
+    GreaterThan,      // (>)
     Eof,
     Unknown(char),
 }
@@ -112,7 +113,8 @@ impl Lexer {
             "if" => Token::If,
             "else" => Token::Else,
             "while" => Token::While,
-            _ => Token::Id(word),
+            "let" => Token::Let,
+            _ => Token::Identifier(word),
         }
     }
 

@@ -1,12 +1,17 @@
 use crate::ast::{Stmt, Expr, BinOp};
+use std::collections::HashMap;
 
 pub struct Vm {
     pub last_result: i32,
+    pub variables: HashMap<String, i32>,
 }
 
 impl Vm {
     pub fn new() -> Self {
-        Self { last_result: 0 }
+        Self {
+            last_result: 0,
+            variables: HashMap::new(),
+        }
     }
 
     pub fn set_result(&mut self, value: i32) {
@@ -36,15 +41,32 @@ impl Vm {
                     self.execute(*body.clone());
                 }
             }
+            Stmt::Let { name, value } => {
+                let val = self.eval_expr(value);
+                self.variables.insert(name, val);
+            }
+            Stmt::Assign { name, value } => {
+                let val = self.eval_expr(value);
+                if self.variables.contains_key(&name) {
+                    self.variables.insert(name, val);
+                } else {
+                    panic!("Variable '{}' not declared", name);
+                }
+            }
+            Stmt::Block(stmts) => {
+                for stmt in stmts {
+                    self.execute(stmt);
+                }
+            }
         }
     }
-    
-    
-    
 
     fn eval_expr(&self, expr: Expr) -> i32 {
         match expr {
             Expr::Number(n) => n,
+            Expr::Variable(name) => {
+                *self.variables.get(&name).expect(&format!("Variable '{}' not found", name))
+            }
             Expr::BinaryOp { op, left, right } => {
                 let l = self.eval_expr(*left);
                 let r = self.eval_expr(*right);
@@ -52,7 +74,12 @@ impl Vm {
                     BinOp::Add => l + r,
                     BinOp::Sub => l - r,
                     BinOp::Mul => l * r,
-                    BinOp::Div => l / r,
+                    BinOp::Div => {
+                        if r == 0 {
+                            panic!("Division by zero");
+                        }
+                        l / r
+                    }
                     BinOp::Equal => if l == r { 1 } else { 0 },
                     BinOp::NotEqual => if l != r { 1 } else { 0 },
                     BinOp::LessThan => if l < r { 1 } else { 0 },
