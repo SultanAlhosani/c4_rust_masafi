@@ -23,6 +23,8 @@ pub enum Token {
     GreaterThan,      // (>)
     Eof,
     Unknown(char),
+    True,
+    False,
 }
 
 pub struct Lexer {
@@ -107,16 +109,19 @@ impl Lexer {
             }
         }
         let word: String = self.input[start..self.pos].iter().collect();
-
+    
         match word.as_str() {
             "return" => Token::Return,
             "if" => Token::If,
             "else" => Token::Else,
             "while" => Token::While,
-            "let" => Token::Let,
+            "let" => Token::Let,   // <--- ADD THIS
+            "true" => Token::True,
+            "false" => Token::False,
             _ => Token::Identifier(word),
         }
     }
+    
 
     fn skip_whitespace(&mut self) {
         while let Some(ch) = self.current_char() {

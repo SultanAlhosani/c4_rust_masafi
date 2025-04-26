@@ -37,65 +37,29 @@ impl<'a> Parser<'a> {
                 self.next(); // consume 'return'
                 let expr = self.expression();
                 if self.current_token == Token::Semicolon {
-                    self.next(); // consume ';'
-                } else {
-                    panic!("Expected ';' after return");
+                    self.next(); // consume optional ';'
                 }
                 Stmt::Return(expr)
             }
-            Token::If => {
-                self.next(); // consume 'if'
-                if self.current_token != Token::OpenParen {
-                    panic!("Expected '(' after if");
-                }
-                self.next();
-                let condition = self.expression();
-                if self.current_token != Token::CloseParen {
-                    panic!("Expected ')' after condition");
-                }
-                self.next();
-                let then_branch = Box::new(self.block()); // block!
-                let else_branch = if self.current_token == Token::Else {
-                    self.next();
-                    Some(Box::new(self.block())) // block!
-                } else {
-                    None
-                };
-                Stmt::If { condition, then_branch, else_branch }
-            }
-            Token::While => {
-                self.next(); // consume 'while'
-                if self.current_token != Token::OpenParen {
-                    panic!("Expected '(' after while");
-                }
-                self.next();
-                let condition = self.expression();
-                if self.current_token != Token::CloseParen {
-                    panic!("Expected ')' after condition");
-                }
-                self.next();
-                let body = Box::new(self.block()); // block!
-                Stmt::While { condition, body }
-            }
             Token::Let => {
                 self.next(); // consume 'let'
-                let var_name = if let Token::Identifier(name) = &self.current_token {
-                    name.clone()
-                } else {
-                    panic!("Expected identifier after 'let'");
+                let name = match &self.current_token {
+                    Token::Identifier(n) => {
+                        let n = n.clone();
+                        self.next();
+                        n
+                    }
+                    _ => panic!("Expected identifier after 'let'"),
                 };
-                self.next(); // consume identifier
                 if self.current_token != Token::Assign {
                     panic!("Expected '=' after identifier");
                 }
                 self.next(); // consume '='
                 let value = self.expression();
                 if self.current_token == Token::Semicolon {
-                    self.next(); // consume ';'
-                } else {
-                    panic!("Expected ';' after let");
+                    self.next(); // consume optional ';'
                 }
-                Stmt::Let { name: var_name, value }
+                Stmt::Let { name, value }
             }
             Token::Identifier(name) => {
                 let var_name = name.clone();
@@ -106,11 +70,46 @@ impl<'a> Parser<'a> {
                 self.next(); // consume '='
                 let value = self.expression();
                 if self.current_token == Token::Semicolon {
-                    self.next(); // consume ';'
-                } else {
-                    panic!("Expected ';' after assignment");
+                    self.next(); // consume optional ';'
                 }
                 Stmt::Assign { name: var_name, value }
+            }
+            Token::If => {
+                self.next(); // consume 'if'
+                if self.current_token != Token::OpenParen {
+                    panic!("Expected '(' after 'if'");
+                }
+                self.next();
+                let condition = self.expression();
+                if self.current_token != Token::CloseParen {
+                    panic!("Expected ')' after condition");
+                }
+                self.next();
+                let then_branch = Box::new(self.statement());
+                let else_branch = if self.current_token == Token::Else {
+                    self.next();
+                    Some(Box::new(self.statement()))
+                } else {
+                    None
+                };
+                Stmt::If { condition, then_branch, else_branch }
+            }
+            Token::While => {
+                self.next(); // consume 'while'
+                if self.current_token != Token::OpenParen {
+                    panic!("Expected '(' after 'while'");
+                }
+                self.next();
+                let condition = self.expression();
+                if self.current_token != Token::CloseParen {
+                    panic!("Expected ')' after while condition");
+                }
+                self.next();
+                let body = Box::new(self.statement());
+                Stmt::While { condition, body }
+            }
+            Token::OpenBrace => {
+                self.block() // <-- If it's '{', we enter block parsing
             }
             _ => {
                 panic!("Unexpected token: {:?}", self.current_token);
@@ -119,10 +118,13 @@ impl<'a> Parser<'a> {
     }
     
     
+    
+    
+    
 
     fn expression(&mut self) -> Expr {
-        let mut node = self.primary();
-
+        let mut node = self.primary(); // start with a number, variable, boolean, or ( )
+    
         loop {
             match self.current_token {
                 Token::Add => {
@@ -189,12 +191,13 @@ impl<'a> Parser<'a> {
                         right: Box::new(self.primary()),
                     };
                 }
-                _ => break,
+                _ => break, // No more operators? expression finished.
             }
         }
-
+    
         node
     }
+    
 
     fn primary(&mut self) -> Expr {
         match &self.current_token {
@@ -203,6 +206,14 @@ impl<'a> Parser<'a> {
                 self.next();
                 Expr::Number(val)
             }
+            Token::True => {
+                self.next();
+                Expr::Boolean(true)
+            }
+            Token::False => {
+                self.next();
+                Expr::Boolean(false)
+            }
             Token::Identifier(name) => {
                 let var_name = name.clone();
                 self.next();
@@ -210,19 +221,20 @@ impl<'a> Parser<'a> {
             }
             Token::OpenParen => {
                 self.next();
-                let expr = self.expression();
-                if self.current_token == Token::CloseParen {
-                    self.next();
-                    expr
-                } else {
-                    panic!("Expected closing parenthesis");
+                let expr = self.expression(); // <--- full expression, not just one number!
+                if self.current_token != Token::CloseParen {
+                    panic!("Expected ')' after expression");
                 }
+                self.next();
+                expr
             }
             _ => {
-                panic!("Unexpected token in primary: {:?}", self.current_token);
+                panic!("Unexpected token in primary expression: {:?}", self.current_token);
             }
         }
     }
+    
+    
 
     fn block(&mut self) -> Stmt {
         if self.current_token != Token::OpenBrace {

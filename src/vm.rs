@@ -64,6 +64,7 @@ impl Vm {
     fn eval_expr(&self, expr: Expr) -> i32 {
         match expr {
             Expr::Number(n) => n,
+            Expr::Boolean(b) => if b { 1 } else { 0 }, // <-- added
             Expr::Variable(name) => {
                 *self.variables.get(&name).expect(&format!("Variable '{}' not found", name))
             }
@@ -88,4 +89,5 @@ impl Vm {
             }
         }
     }
+    
 }
