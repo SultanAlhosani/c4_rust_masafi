@@ -1,4 +1,5 @@
-#[derive(Debug)]
+#[derive(Debug, Clone)]
+
 pub enum Expr {
     Number(i32),
     BinaryOp {
@@ -8,7 +9,7 @@ pub enum Expr {
     },
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum BinOp {
     Add,
     Sub,
@@ -16,7 +17,8 @@ pub enum BinOp {
     Div,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
+
 pub enum Stmt {
     Return(Expr),
     If {
@@ -24,5 +26,11 @@ pub enum Stmt {
         then_branch: Box<Stmt>,
         else_branch: Option<Box<Stmt>>,
     },
+    While {
+        condition: Expr,
+        body: Box<Stmt>,
+    },
 }
+
+
 

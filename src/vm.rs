@@ -31,8 +31,14 @@ impl Vm {
                     self.execute(*else_stmt);
                 }
             }
+            Stmt::While { condition, body } => {
+                while self.eval_expr(condition.clone()) != 0 {
+                    self.execute(*body.clone());
+                }
+            }
         }
     }
+    
     
     
 

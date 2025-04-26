@@ -30,47 +30,61 @@ impl<'a> Parser<'a> {
     fn statement(&mut self) -> Stmt {
         match &self.current_token {
             Token::Return => {
-                self.next(); // consume 'return'
+                self.next();
                 let expr = self.expression();
                 if self.current_token == Token::Semicolon {
-                    self.next(); // consume ';'
+                    self.next();
                 } else {
                     panic!("Expected ';' after return value");
                 }
                 Stmt::Return(expr)
             }
             Token::If => {
-                self.next(); // consume 'if'
+                self.next();
                 if self.current_token != Token::OpenParen {
                     panic!("Expected '(' after 'if'");
                 }
-                self.next(); // consume '('
-                let condition = self.expression(); // parse condition
+                self.next();
+                let condition = self.expression();
                 if self.current_token != Token::CloseParen {
                     panic!("Expected ')' after if condition");
                 }
-                self.next(); // consume ')'
-                let then_branch = Box::new(self.statement()); // parse the "then" part
+                self.next();
+                let then_branch = Box::new(self.statement());
     
-                // Check if there is an "else"
                 let else_branch = if let Token::Else = self.current_token {
-                    self.next(); // consume 'else'
-                    Some(Box::new(self.statement())) // parse the "else" part
+                    self.next();
+                    Some(Box::new(self.statement()))
                 } else {
                     None
                 };
     
                 Stmt::If {
                     condition,
-                    then_branch,    
+                    then_branch,
                     else_branch,
                 }
+            }
+            Token::While => {
+                self.next(); // consume 'while'
+                if self.current_token != Token::OpenParen {
+                    panic!("Expected '(' after 'while'");
+                }
+                self.next(); // consume '('
+                let condition = self.expression();
+                if self.current_token != Token::CloseParen {
+                    panic!("Expected ')' after while condition");
+                }
+                self.next(); // consume ')'
+                let body = Box::new(self.statement());
+                Stmt::While { condition, body }
             }
             _ => {
                 panic!("Unexpected token: {:?}", self.current_token);
             }
         }
     }
+    
     
 
     fn expression(&mut self) -> Expr {
