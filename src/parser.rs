@@ -1,5 +1,5 @@
-use crate::lexer::{Lexer, Token};
 use crate::ast::{Expr, Stmt};
+use crate::lexer::{Lexer, Token};
 use crate::vm::Vm;
 
 pub struct Parser<'a> {
@@ -32,6 +32,7 @@ impl<'a> Parser<'a> {
     }
 
     fn statement(&mut self) -> Stmt {
+        println!("Current token: {:?}", self.current_token);
         match &self.current_token {
             Token::Return => {
                 self.next();
@@ -72,7 +73,10 @@ impl<'a> Parser<'a> {
                 if self.current_token == Token::Semicolon {
                     self.next();
                 }
-                Stmt::Assign { name: var_name, value }
+                Stmt::Assign {
+                    name: var_name,
+                    value,
+                }
             }
             Token::If => {
                 self.next();
@@ -92,7 +96,11 @@ impl<'a> Parser<'a> {
                 } else {
                     None
                 };
-                Stmt::If { condition, then_branch, else_branch }
+                Stmt::If {
+                    condition,
+                    then_branch,
+                    else_branch,
+                }
             }
             Token::While => {
                 self.next();
@@ -108,11 +116,55 @@ impl<'a> Parser<'a> {
                 let body = Box::new(self.statement());
                 Stmt::While { condition, body }
             }
-            Token::OpenBrace => {
-                self.block()
+            Token::OpenBrace => self.block(),
+
+            //token for function
+            Token::Fn => {
+                self.next(); // consume 'fn'
+
+                // Expect an identifier (function name)
+                let name = match &self.current_token {
+                    Token::Identifier(n) => {
+                        let n = n.clone();
+                        self.next();
+                        n
+                    }
+                    _ => panic!("Expected function name after 'fn'"),
+                };
+
+                // Parse parameters
+                if self.current_token != Token::OpenParen {
+                    panic!("Expected '(' after function name");
+                }
+                self.next(); // consume '('
+
+                let mut params = Vec::new();
+                while self.current_token != Token::CloseParen {
+                    if let Token::Identifier(param) = &self.current_token {
+                        params.push(param.clone());
+                        self.next();
+
+                        if self.current_token == Token::Comma {
+                            self.next(); // consume ','
+                        } else if self.current_token != Token::CloseParen {
+                            panic!("Expected ',' or ')' in parameter list");
+                        }
+                    } else {
+                        panic!("Expected parameter name");
+                    }
+                }
+                self.next(); // consume ')'
+
+                // Parse function body (block)
+                let body = Box::new(self.block());
+
+                Stmt::Function { name, params, body }
             }
             _ => {
-                panic!("Unexpected token: {:?}", self.current_token);
+                panic!(
+                    "Unexpected token: {:?}. Ensure the input is valid.",
+                    self.current_token
+                );
             }
         }
     }
@@ -208,7 +260,8 @@ impl<'a> Parser<'a> {
                 self.next();
                 Expr::Boolean(false)
             }
-            Token::Char(c) => { // <-- Added here
+            Token::Char(c) => {
+                // <-- Added here
                 let ch = *c;
                 self.next();
                 Expr::Char(ch)
@@ -216,7 +269,31 @@ impl<'a> Parser<'a> {
             Token::Identifier(name) => {
                 let var_name = name.clone();
                 self.next();
-                Expr::Variable(var_name)
+
+                // Check if this is a function call
+                if self.current_token == Token::OpenParen {
+                    self.next(); // consume '('
+                    let mut args = Vec::new();
+
+                    while self.current_token != Token::CloseParen {
+                        let arg = self.expression();
+                        args.push(arg);
+
+                        if self.current_token == Token::Comma {
+                            self.next(); // consume ','
+                        } else if self.current_token != Token::CloseParen {
+                            panic!("Expected ',' or ')' in function call");
+                        }
+                    }
+                    self.next(); // consume ')'
+
+                    Expr::FunctionCall {
+                        name: var_name,
+                        args,
+                    }
+                } else {
+                    Expr::Variable(var_name)
+                }
             }
             Token::OpenParen => {
                 self.next();
@@ -228,7 +305,10 @@ impl<'a> Parser<'a> {
                 expr
             }
             _ => {
-                panic!("Unexpected token in primary expression: {:?}", self.current_token);
+                panic!(
+                    "Unexpected token in primary expression: {:?}",
+                    self.current_token
+                );
             }
         }
     }

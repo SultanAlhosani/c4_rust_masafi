@@ -6,26 +6,28 @@ pub enum Token {
     If,
     Else,
     While,
-    Let,              // <-- Added Let keyword
+    Let, // <-- Added Let keyword
     OpenParen,
     CloseParen,
     OpenBrace,
     CloseBrace,
     Semicolon,
-    Assign,           // (=)
+    Assign, // (=)
     Add,
     Sub,
     Mul,
     Div,
-    Equal,            // (==)
-    NotEqual,         // (!=)
-    LessThan,         // (<)
-    GreaterThan,      // (>)
+    Equal,       // (==)
+    NotEqual,    // (!=)
+    LessThan,    // (<)
+    GreaterThan, // (>)
     Eof,
     Unknown(char),
     True,
     False,
     Char(char),
+    Fn,
+    Comma,
 }
 
 pub struct Lexer {
@@ -43,38 +45,66 @@ impl Lexer {
 
     pub fn next_token(&mut self) -> Token {
         self.skip_whitespace();
-    
+
         if let Some(ch) = self.current_char() {
             match ch {
-                '\'' => { // <-- new case for characters
+                '\'' => {
+                    // <-- new case for characters
                     self.advance(); // consume opening '
-    
+
                     let ch = match self.current_char() {
                         Some(c) => c,
                         None => panic!("Unterminated character literal"),
                     };
-    
+
                     self.advance(); // consume the character
-    
+
                     if self.current_char() != Some('\'') {
                         panic!("Expected closing single quote after character");
                     }
-    
+
                     self.advance(); // consume closing '
-    
+
                     Token::Char(ch)
                 }
                 '0'..='9' => self.number(),
                 'a'..='z' | 'A'..='Z' | '_' => self.identifier_or_keyword(),
-                '+' => { self.advance(); Token::Add }
-                '-' => { self.advance(); Token::Sub }
-                '*' => { self.advance(); Token::Mul }
-                '/' => { self.advance(); Token::Div }
-                '(' => { self.advance(); Token::OpenParen }
-                ')' => { self.advance(); Token::CloseParen }
-                '{' => { self.advance(); Token::OpenBrace }
-                '}' => { self.advance(); Token::CloseBrace }
-                ';' => { self.advance(); Token::Semicolon }
+                '+' => {
+                    self.advance();
+                    Token::Add
+                }
+                '-' => {
+                    self.advance();
+                    Token::Sub
+                }
+                '*' => {
+                    self.advance();
+                    Token::Mul
+                }
+                '/' => {
+                    self.advance();
+                    Token::Div
+                }
+                '(' => {
+                    self.advance();
+                    Token::OpenParen
+                }
+                ')' => {
+                    self.advance();
+                    Token::CloseParen
+                }
+                '{' => {
+                    self.advance();
+                    Token::OpenBrace
+                }
+                '}' => {
+                    self.advance();
+                    Token::CloseBrace
+                }
+                ';' => {
+                    self.advance();
+                    Token::Semicolon
+                }
                 '=' => {
                     self.advance();
                     if self.match_char('=') {
@@ -93,8 +123,18 @@ impl Lexer {
                         Token::Unknown('!')
                     }
                 }
-                '<' => { self.advance(); Token::LessThan }
-                '>' => { self.advance(); Token::GreaterThan }
+                '<' => {
+                    self.advance();
+                    Token::LessThan
+                }
+                '>' => {
+                    self.advance();
+                    Token::GreaterThan
+                }
+                ',' => {
+                    self.advance();
+                    Token::Comma
+                }
                 _ => {
                     self.advance();
                     Token::Unknown(ch)
@@ -104,7 +144,6 @@ impl Lexer {
             Token::Eof
         }
     }
-    
 
     fn number(&mut self) -> Token {
         let mut value = 0;
@@ -129,19 +168,19 @@ impl Lexer {
             }
         }
         let word: String = self.input[start..self.pos].iter().collect();
-    
+
         match word.as_str() {
             "return" => Token::Return,
             "if" => Token::If,
             "else" => Token::Else,
             "while" => Token::While,
-            "let" => Token::Let,   // <--- ADD THIS
+            "let" => Token::Let,
             "true" => Token::True,
             "false" => Token::False,
+            "fn" => Token::Fn, // <-- Added function keyword
             _ => Token::Identifier(word),
         }
     }
-    
 
     fn skip_whitespace(&mut self) {
         while let Some(ch) = self.current_char() {
