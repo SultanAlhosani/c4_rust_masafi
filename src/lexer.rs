@@ -1,4 +1,9 @@
+/// Lexer analyzer for tokenizing the input source code.
+/// It converts the source code into a stream of tokens that can be used by the parser.
+
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// All tokens that the lexer can recognize.
+/// This includes keywords, identifiers, literals, and operators.
 pub enum Token {
     Num(i32),
     Identifier(String),
@@ -29,13 +34,26 @@ pub enum Token {
     Fn,
     Comma,
 }
-
+/// A lexical analyzer (lexer) for tokenizing source code.
+///
+/// The lexer processes the input source code and produces a sequence of tokens
+/// that represent the smallest units of meaning in the code.
 pub struct Lexer {
+    /// The input source code as a vector of characters.
     input: Vec<char>,
+
+    /// The current position in the input.
     pos: usize,
 }
 
 impl Lexer {
+    /// Creates a new `Lexer` instance.
+    ///
+    /// # Parameters
+    /// - `input`: The source code to tokenize.
+    ///
+    /// # Returns
+    /// A new `Lexer` instance.
     pub fn new(input: &str) -> Self {
         Self {
             input: input.chars().collect(),
@@ -43,27 +61,33 @@ impl Lexer {
         }
     }
 
+    /// Retrieves the next token from the input.
+    ///
+    /// This function skips over whitespace and identifies the next meaningful
+    /// token in the source code.
+    ///
+    /// # Returns
+    /// The next `Token` in the input.
     pub fn next_token(&mut self) -> Token {
         self.skip_whitespace();
 
         if let Some(ch) = self.current_char() {
             match ch {
                 '\'' => {
-                    // <-- new case for characters
-                    self.advance(); // consume opening '
+                    self.advance(); // Consume opening '
 
                     let ch = match self.current_char() {
                         Some(c) => c,
                         None => panic!("Unterminated character literal"),
                     };
 
-                    self.advance(); // consume the character
+                    self.advance(); // Consume the character
 
                     if self.current_char() != Some('\'') {
                         panic!("Expected closing single quote after character");
                     }
 
-                    self.advance(); // consume closing '
+                    self.advance(); // Consume closing '
 
                     Token::Char(ch)
                 }
@@ -145,6 +169,12 @@ impl Lexer {
         }
     }
 
+    /// Parses a numeric literal from the input.
+    ///
+    /// This function reads consecutive digits and converts them into an integer.
+    ///
+    /// # Returns
+    /// A `Token::Num` containing the parsed number.
     fn number(&mut self) -> Token {
         let mut value = 0;
         while let Some(ch) = self.current_char() {
@@ -158,6 +188,13 @@ impl Lexer {
         Token::Num(value)
     }
 
+    /// Parses an identifier or keyword from the input.
+    ///
+    /// This function reads consecutive alphanumeric characters or underscores
+    /// and determines whether the result is a keyword or an identifier.
+    ///
+    /// # Returns
+    /// A `Token` representing the identifier or keyword.
     fn identifier_or_keyword(&mut self) -> Token {
         let start = self.pos;
         while let Some(ch) = self.current_char() {
@@ -177,11 +214,15 @@ impl Lexer {
             "let" => Token::Let,
             "true" => Token::True,
             "false" => Token::False,
-            "fn" => Token::Fn, // <-- Added function keyword
+            "fn" => Token::Fn,
             _ => Token::Identifier(word),
         }
     }
 
+    /// Skips over whitespace characters in the input.
+    ///
+    /// This function advances the position in the input until a non-whitespace
+    /// character is encountered.
     fn skip_whitespace(&mut self) {
         while let Some(ch) = self.current_char() {
             if ch.is_whitespace() {
@@ -192,14 +233,28 @@ impl Lexer {
         }
     }
 
+    /// Checks if the current character matches the expected character.
+    ///
+    /// # Parameters
+    /// - `expected`: The character to match.
+    ///
+    /// # Returns
+    /// `true` if the current character matches, `false` otherwise.
     fn match_char(&self, expected: char) -> bool {
         self.input.get(self.pos) == Some(&expected)
     }
 
+    /// Advances the current position in the input.
+    ///
+    /// This function moves the position forward by one character.
     fn advance(&mut self) {
         self.pos += 1;
     }
 
+    /// Retrieves the current character from the input.
+    ///
+    /// # Returns
+    /// The current character, or `None` if at the end of the input.
     fn current_char(&self) -> Option<char> {
         self.input.get(self.pos).copied()
     }
