@@ -191,86 +191,102 @@ impl<'a> Parser<'a> {
     /// # Returns
     /// An `Expr` representing the parsed expression.
     fn expression(&mut self) -> Expr {
-        let mut node = self.primary();
-
-        loop {
-            match self.current_token {
-                Token::Add => {
-                    self.next();
-                    node = Expr::BinaryOp {
-                        op: crate::ast::BinOp::Add,
-                        left: Box::new(node),
-                        right: Box::new(self.primary()),
-                    };
-                }
-                Token::Sub => {
-                    self.next();
-                    node = Expr::BinaryOp {
-                        op: crate::ast::BinOp::Sub,
-                        left: Box::new(node),
-                        right: Box::new(self.primary()),
-                    };
-                }
-                Token::Mul => {
-                    self.next();
-                    node = Expr::BinaryOp {
-                        op: crate::ast::BinOp::Mul,
-                        left: Box::new(node),
-                        right: Box::new(self.primary()),
-                    };
-                }
-                Token::Div => {
-                    self.next();
-                    node = Expr::BinaryOp {
-                        op: crate::ast::BinOp::Div,
-                        left: Box::new(node),
-                        right: Box::new(self.primary()),
-                    };
-                }
-                Token::Equal => {
-                    self.next();
-                    node = Expr::BinaryOp {
-                        op: crate::ast::BinOp::Equal,
-                        left: Box::new(node),
-                        right: Box::new(self.primary()),
-                    };
-                }
-                Token::NotEqual => {
-                    self.next();
-                    node = Expr::BinaryOp {
-                        op: crate::ast::BinOp::NotEqual,
-                        left: Box::new(node),
-                        right: Box::new(self.primary()),
-                    };
-                }
-                Token::LessThan => {
-                    self.next();
-                    node = Expr::BinaryOp {
-                        op: crate::ast::BinOp::LessThan,
-                        left: Box::new(node),
-                        right: Box::new(self.primary()),
-                    };
-                }
-                Token::GreaterThan => {
-                    self.next();
-                    node = Expr::BinaryOp {
-                        op: crate::ast::BinOp::GreaterThan,
-                        left: Box::new(node),
-                        right: Box::new(self.primary()),
-                    };
-                }
-                _ => break,
-            }
-        }
-
-        node
+        self.parse_expr()
     }
 
-    /// Parses a primary expression (e.g., literals, variables, or grouped expressions).
+    /// Parses an expression, delegating to comparison operators.
+    ///
+    /// # Returns
+    /// An `Expr` representing the parsed expression.
+    fn parse_expr(&mut self) -> Expr {
+        self.parse_cmp()
+    }
+
+    /// Parses comparison operators (==, !=, <, >), delegating to addition/subtraction.
+    ///
+    /// # Returns
+    /// An `Expr` representing the parsed expression.
+    fn parse_cmp(&mut self) -> Expr {
+        let mut lhs = self.parse_add_sub();
+
+        while matches!(
+            self.current_token,
+            Token::Equal | Token::NotEqual | Token::LessThan | Token::GreaterThan
+        ) {
+            let op = match self.current_token {
+                Token::Equal => crate::ast::BinOp::Equal,
+                Token::NotEqual => crate::ast::BinOp::NotEqual,
+                Token::LessThan => crate::ast::BinOp::LessThan,
+                Token::GreaterThan => crate::ast::BinOp::GreaterThan,
+                _ => unreachable!(),
+            };
+            self.next(); // Consume the operator
+            let rhs = self.parse_add_sub();
+            lhs = Expr::BinaryOp {
+                op,
+                left: Box::new(lhs),
+                right: Box::new(rhs),
+            };
+        }
+
+        lhs
+    }
+
+    /// Parses addition and subtraction (+, -), delegating to multiplication/division.
+    ///
+    /// # Returns
+    /// An `Expr` representing the parsed expression.
+    fn parse_add_sub(&mut self) -> Expr {
+        let mut lhs = self.parse_mul_div();
+
+        while matches!(self.current_token, Token::Add | Token::Sub) {
+            let op = match self.current_token {
+                Token::Add => crate::ast::BinOp::Add,
+                Token::Sub => crate::ast::BinOp::Sub,
+                _ => unreachable!(),
+            };
+            self.next(); // Consume the operator
+            let rhs = self.parse_mul_div();
+            lhs = Expr::BinaryOp {
+                op,
+                left: Box::new(lhs),
+                right: Box::new(rhs),
+            };
+        }
+
+        lhs
+    }
+
+    /// Parses multiplication, division, and modulo (*, /, %), delegating to primary expressions.
+    ///
+    /// # Returns
+    /// An `Expr` representing the parsed expression.
+    fn parse_mul_div(&mut self) -> Expr {
+        let mut lhs = self.parse_primary();
+
+        while matches!(self.current_token, Token::Mul | Token::Div) {
+            let op = match self.current_token {
+                Token::Mul => crate::ast::BinOp::Mul,
+                Token::Div => crate::ast::BinOp::Div,
+                _ => unreachable!(),
+            };
+            self.next(); // Consume the operator
+            let rhs = self.parse_primary();
+            lhs = Expr::BinaryOp {
+                op,
+                left: Box::new(lhs),
+                right: Box::new(rhs),
+            };
+        }
+
+        lhs
+    }
+
+    /// Parses primary expressions, such as literals, variables, function calls, and parenthesized expressions.
     ///
     /// # Returns
     /// An `Expr` representing the parsed primary expression.
-    fn primary(&mut self) -> Expr {
+    fn parse_primary(&mut self) -> Expr {
         match &self.current_token {
             Token::Num(n) => {
                 let val = *n;
@@ -286,7 +302,6 @@ impl<'a> Parser<'a> {
                 Expr::Boolean(false)
             }
             Token::Char(c) => {
-                // <-- Added here
                 let ch = *c;
                 self.next();
                 Expr::Char(ch)
@@ -297,20 +312,18 @@ impl<'a> Parser<'a> {
 
                 // Check if this is a function call
                 if self.current_token == Token::OpenParen {
-                    self.next(); // consume '('
+                    self.next(); // Consume '('
                     let mut args = Vec::new();
 
                     while self.current_token != Token::CloseParen {
-                        let arg = self.expression();
-                        args.push(arg);
-
+                        args.push(self.expression());
                         if self.current_token == Token::Comma {
-                            self.next(); // consume ','
+                            self.next(); // Consume ','
                         } else if self.current_token != Token::CloseParen {
                             panic!("Expected ',' or ')' in function call");
                         }
                     }
-                    self.next(); // consume ')'
+                    self.next(); // Consume ')'
 
                     Expr::FunctionCall {
                         name: var_name,
@@ -321,20 +334,18 @@ impl<'a> Parser<'a> {
                 }
             }
             Token::OpenParen => {
-                self.next();
+                self.next(); // Consume '('
                 let expr = self.expression();
                 if self.current_token != Token::CloseParen {
                     panic!("Expected ')' after expression");
                 }
-                self.next();
+                self.next(); // Consume ')'
                 expr
             }
-            _ => {
-                panic!(
-                    "Unexpected token in primary expression: {:?}",
-                    self.current_token
-                );
-            }
+            _ => panic!(
+                "Unexpected token in primary expression: {:?}",
+                self.current_token
+            ),
         }
     }
 
