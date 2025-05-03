@@ -37,73 +37,38 @@ impl<'a> Parser<'a> {
             Token::Return => {
                 self.next();
                 let expr = self.expression();
-                if self.current_token == Token::Semicolon {
-                    self.next();
-                }
+                self.consume_semicolon();
                 Stmt::Return(expr)
             }
             Token::Let => {
                 self.next();
-                let name = match &self.current_token {
-                    Token::Identifier(n) => {
-                        let n = n.clone();
-                        self.next();
-                        n
-                    }
-                    _ => panic!("Expected identifier after 'let' at line {}, column {}", line, col),
-                };
-                if self.current_token != Token::Assign {
-                    panic!("Expected '=' after identifier at line {}, column {}", line, col);
-                }
-                self.next();
+                let name = self.expect_identifier("Expected identifier after 'let'", line, col);
+                self.expect_token(Token::Assign, "Expected '=' after identifier", line, col);
                 let value = self.expression();
-                if self.current_token == Token::Semicolon {
-                    self.next();
-                }
+                self.consume_semicolon();
                 Stmt::Let { name, value }
             }
             Token::Print => {
                 self.next();
-                if self.current_token != Token::OpenParen {
-                    panic!("Expected '(' after 'print' at line {}, column {}", line, col);
-                }
-                self.next();
+                self.expect_token(Token::OpenParen, "Expected '(' after 'print'", line, col);
                 let expr = self.expression();
-                if self.current_token != Token::CloseParen {
-                    panic!("Expected ')' after expression in 'print' at line {}, column {}", line, col);
-                }
-                self.next();
-                if self.current_token == Token::Semicolon {
-                    self.next();
-                }
+                self.expect_token(Token::CloseParen, "Expected ')' after expression", line, col);
+                self.consume_semicolon();
                 Stmt::Print(expr)
             }
             Token::Identifier(name) => {
                 let var_name = name.clone();
                 self.next();
-                if self.current_token != Token::Assign {
-                    panic!("Expected '=' after identifier at line {}, column {}", line, col);
-                }
-                self.next();
+                self.expect_token(Token::Assign, "Expected '=' after identifier", line, col);
                 let value = self.expression();
-                if self.current_token == Token::Semicolon {
-                    self.next(); // Optional semicolon
-                }
-            
+                self.consume_semicolon();
                 Stmt::Assign { name: var_name, value }
-
             }
             Token::If => {
                 self.next();
-                if self.current_token != Token::OpenParen {
-                    panic!("Expected '(' after 'if' at line {}, column {}", line, col);
-                }
-                self.next();
+                self.expect_token(Token::OpenParen, "Expected '(' after 'if'", line, col);
                 let condition = self.expression();
-                if self.current_token != Token::CloseParen {
-                    panic!("Expected ')' after condition at line {}, column {}", line, col);
-                }
-                self.next();
+                self.expect_token(Token::CloseParen, "Expected ')' after condition", line, col);
                 let then_branch = Box::new(self.statement());
                 let else_branch = if self.current_token == Token::Else {
                     self.next();
@@ -115,33 +80,17 @@ impl<'a> Parser<'a> {
             }
             Token::While => {
                 self.next();
-                if self.current_token != Token::OpenParen {
-                    panic!("Expected '(' after 'while' at line {}, column {}", line, col);
-                }
-                self.next();
+                self.expect_token(Token::OpenParen, "Expected '(' after 'while'", line, col);
                 let condition = self.expression();
-                if self.current_token != Token::CloseParen {
-                    panic!("Expected ')' after condition at line {}, column {}", line, col);
-                }
-                self.next();
+                self.expect_token(Token::CloseParen, "Expected ')' after condition", line, col);
                 let body = Box::new(self.statement());
                 Stmt::While { condition, body }
             }
             Token::OpenBrace => self.block(),
             Token::Fn => {
                 self.next();
-                let name = match &self.current_token {
-                    Token::Identifier(n) => {
-                        let n = n.clone();
-                        self.next();
-                        n
-                    }
-                    _ => panic!("Expected function name after 'fn' at line {}, column {}", line, col),
-                };
-                if self.current_token != Token::OpenParen {
-                    panic!("Expected '(' after function name at line {}, column {}", line, col);
-                }
-                self.next();
+                let name = self.expect_identifier("Expected function name after 'fn'", line, col);
+                self.expect_token(Token::OpenParen, "Expected '(' after function name", line, col);
                 let mut params = Vec::new();
                 while self.current_token != Token::CloseParen {
                     if let Token::Identifier(param) = &self.current_token {
@@ -160,6 +109,37 @@ impl<'a> Parser<'a> {
                 let body = Box::new(self.block());
                 Stmt::Function { name, params, body }
             }
+            Token::Enum => {
+                self.next();
+                let enum_name = format!("__anon_enum_{}", line);
+
+                self.expect_token(Token::OpenBrace, "Expected '{' after 'enum'", line, col);
+                let mut value = 0;
+                while self.current_token != Token::CloseBrace {
+                    let name = self.expect_identifier("Expected identifier in enum", line, col);
+                    if self.current_token == Token::Assign {
+                        self.next();
+                        if let Token::Num(n) = self.current_token {
+                            value = n;
+                            self.next();
+                        } else {
+                            panic!("Expected number after '=' in enum declaration");
+                        }
+                    }
+                    self.vm.constants.insert(name.clone(), value);
+
+            
+                    value += 1;
+                    if self.current_token == Token::Comma {
+                        self.next();
+                    } else if self.current_token != Token::CloseBrace {
+                        panic!("Expected ',' or '}}' in enum declaration");
+                    }
+                }
+                self.expect_token(Token::CloseBrace, "Expected '}' after enum", line, col);
+                self.consume_semicolon(); // allow semicolon after enum declaration
+                Stmt::Block(vec![])
+            }            
             _ => panic!("Unexpected token: {:?} at line {}, column {}", self.current_token, line, col),
         }
     }
@@ -167,27 +147,32 @@ impl<'a> Parser<'a> {
     fn expression(&mut self) -> Expr {
         self.parse_assignment()
     }
-    
-    
-    
+
     fn parse_assignment(&mut self) -> Expr {
-        let mut expr = self.parse_logic_or();
+        let lhs = self.parse_logic_or();
     
         if self.current_token == Token::Assign {
-            self.next(); // consume '='
-            let value = self.parse_assignment();
-            expr = Expr::BinaryOp {
-                op: BinOp::Assign,
-                left: Box::new(expr),
-                right: Box::new(value),
-            };
-        }
+            self.next();
+            let rhs = self.parse_assignment();
     
-        expr
+            // ✅ Only allow assignment if LHS is a variable
+            if let Expr::Variable(name) = lhs {
+                Expr::BinaryOp {
+                    op: BinOp::Assign,
+                    left: Box::new(Expr::Variable(name)),
+                    right: Box::new(rhs),
+                }
+            } else {
+                panic!("Invalid assignment target");
+            }
+        } else {
+            lhs
+        }
     }
     
     
     
+
 
     fn parse_logic_or(&mut self) -> Expr {
         let mut lhs = self.parse_logic_and();
@@ -213,12 +198,7 @@ impl<'a> Parser<'a> {
         let mut lhs = self.parse_add_sub();
         while matches!(
             self.current_token,
-            Token::Equal
-                | Token::NotEqual
-                | Token::LessThan
-                | Token::GreaterThan
-                | Token::LessEqual
-                | Token::GreaterEqual
+            Token::Equal | Token::NotEqual | Token::LessThan | Token::GreaterThan | Token::LessEqual | Token::GreaterEqual
         ) {
             let op = match self.current_token {
                 Token::Equal => BinOp::Equal,
@@ -231,15 +211,10 @@ impl<'a> Parser<'a> {
             };
             self.next();
             let rhs = self.parse_add_sub();
-            lhs = Expr::BinaryOp {
-                op,
-                left: Box::new(lhs),
-                right: Box::new(rhs),
-            };
+            lhs = Expr::BinaryOp { op, left: Box::new(lhs), right: Box::new(rhs) };
         }
         lhs
     }
-    
 
     fn parse_add_sub(&mut self) -> Expr {
         let mut lhs = self.parse_mul_div();
@@ -257,7 +232,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_mul_div(&mut self) -> Expr {
-        let mut lhs = self.parse_primary();
+        let mut lhs = self.parse_unary(); // ✅ correct
         while matches!(self.current_token, Token::Mul | Token::Div) {
             let op = match self.current_token {
                 Token::Mul => BinOp::Mul,
@@ -265,11 +240,22 @@ impl<'a> Parser<'a> {
                 _ => unreachable!(),
             };
             self.next();
-            let rhs = self.parse_primary();
+            let rhs = self.parse_unary(); // ✅ not just a literal
             lhs = Expr::BinaryOp { op, left: Box::new(lhs), right: Box::new(rhs) };
         }
         lhs
     }
+
+    fn parse_unary(&mut self) -> Expr {
+        if self.current_token == Token::Not {
+            self.next();
+            let expr = self.parse_unary();
+            Expr::UnaryOp { op: UnOp::Not, expr: Box::new(expr) }
+        } else {
+            self.parse_primary()
+        }
+    }
+    
 
     fn parse_primary(&mut self) -> Expr {
         let (line, col) = self.lexer.get_position();
@@ -278,11 +264,26 @@ impl<'a> Parser<'a> {
             let inner = self.parse_primary();
             return Expr::UnaryOp { op: UnOp::Not, expr: Box::new(inner) };
         }
+
         match &self.current_token {
-            Token::Num(n) => { let val = *n; self.next(); Expr::Number(val) }
-            Token::True => { self.next(); Expr::Boolean(true) }
-            Token::False => { self.next(); Expr::Boolean(false) }
-            Token::Char(c) => { let ch = *c; self.next(); Expr::Char(ch) }
+            Token::Num(n) => {
+                let val = *n;
+                self.next();
+                Expr::Number(val)
+            }
+            Token::True => {
+                self.next();
+                Expr::Boolean(true)
+            }
+            Token::False => {
+                self.next();
+                Expr::Boolean(false)
+            }
+            Token::Char(c) => {
+                let ch = *c;
+                self.next();
+                Expr::Char(ch)
+            }
             Token::Identifier(name) => {
                 let var_name = name.clone();
                 self.next();
@@ -290,7 +291,9 @@ impl<'a> Parser<'a> {
                     self.next();
                     let mut args = Vec::new();
                     while self.current_token != Token::CloseParen {
-                        args.push(self.expression());
+                        let arg = self.expression();
+                        args.push(arg);
+
                         if self.current_token == Token::Comma {
                             self.next();
                         } else if self.current_token != Token::CloseParen {
@@ -306,10 +309,7 @@ impl<'a> Parser<'a> {
             Token::OpenParen => {
                 self.next();
                 let expr = self.expression();
-                if self.current_token != Token::CloseParen {
-                    panic!("Expected ')' after expression at line {}, column {}", line, col);
-                }
-                self.next();
+                self.expect_token(Token::CloseParen, "Expected ')' after expression", line, col);
                 expr
             }
             _ => panic!("Unexpected token in expression at line {}, column {}: {:?}", line, col, self.current_token),
@@ -317,15 +317,41 @@ impl<'a> Parser<'a> {
     }
 
     fn block(&mut self) -> Stmt {
-        if self.current_token != Token::OpenBrace {
-            return self.statement();
-        }
-        self.next();
+        self.expect_token(Token::OpenBrace, "Expected '{' to start block", 0, 0);
         let mut statements = Vec::new();
         while self.current_token != Token::CloseBrace {
             statements.push(self.statement());
         }
         self.next();
         Stmt::Block(statements)
+    }
+
+    fn consume_semicolon(&mut self) {
+        if self.current_token == Token::Semicolon {
+            self.next();
+        } else if self.current_token == Token::CloseBrace || self.current_token == Token::Eof {
+            // OK: block end, don't force semicolon
+        } else {
+            let (line, col) = self.lexer.get_position();
+            panic!("Expected ';' at line {}, column {}", line, col);
+        }
+    }
+    
+
+    fn expect_token(&mut self, expected: Token, msg: &str, line: usize, col: usize) {
+        if self.current_token != expected {
+            panic!("{} at line {}, column {}", msg, line, col);
+        }
+        self.next();
+    }
+
+    fn expect_identifier(&mut self, msg: &str, line: usize, col: usize) -> String {
+        if let Token::Identifier(n) = &self.current_token {
+            let name = n.clone();
+            self.next();
+            name
+        } else {
+            panic!("{} at line {}, column {}", msg, line, col);
+        }
     }
 }

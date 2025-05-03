@@ -10,21 +10,26 @@ pub struct Function {
 
 pub struct Vm {
     pub last_result: i32,
-    pub variables: HashMap<String, i32>,
+    pub variables: Vec<HashMap<String, i32>>,
     pub functions: HashMap<String, Function>,
+    pub constants: HashMap<String, i32>,
+    pub should_return: bool,
 }
 
 impl Vm {
     pub fn new() -> Self {
         Self {
             last_result: 0,
-            variables: HashMap::new(),
+            variables: vec![HashMap::new()],
             functions: HashMap::new(),
+            constants: HashMap::new(),
+            should_return: false,
         }
     }
 
     pub fn set_result(&mut self, value: i32) {
         self.last_result = value;
+        self.should_return = true;
     }
 
     pub fn get_result(&self) -> i32 {
@@ -32,49 +37,64 @@ impl Vm {
     }
 
     pub fn execute(&mut self, stmt: Stmt) {
+        if self.should_return {
+            return;
+        }
+
         match stmt {
             Stmt::Return(expr) => {
                 let value = self.eval_expr(expr);
                 self.set_result(value);
             }
+
             Stmt::Let { name, value } => {
                 let val = self.eval_expr(value);
-                self.variables.insert(name, val);
+                self.variables.last_mut().unwrap().insert(name, val);
             }
+
             Stmt::Assign { name, value } => {
                 let val = self.eval_expr(value);
-                self.variables.insert(name, val);
+                for scope in self.variables.iter_mut().rev() {
+                    if scope.contains_key(&name) {
+                        scope.insert(name, val);
+                        return;
+                    }
+                }
+                self.variables.last_mut().unwrap().insert(name, val); // implicit let
             }
-            Stmt::If {
-                condition,
-                then_branch,
-                else_branch,
-            } => {
-                let cond_value = self.eval_expr(condition);
-                if cond_value != 0 {
+
+            Stmt::If { condition, then_branch, else_branch } => {
+                if self.eval_expr(condition) != 0 {
                     self.execute(*then_branch);
                 } else if let Some(else_stmt) = else_branch {
                     self.execute(*else_stmt);
                 }
             }
+
             Stmt::While { condition, body } => {
                 while self.eval_expr(condition.clone()) != 0 {
                     self.execute(*body.clone());
+                    if self.should_return {
+                        break;
+                    }
                 }
             }
+
             Stmt::Block(stmts) => {
+                self.variables.push(HashMap::new());
                 for stmt in stmts {
                     self.execute(stmt);
+                    if self.should_return {
+                        break;
+                    }
                 }
+                self.variables.pop();
             }
+
             Stmt::Function { name, params, body } => {
-                let function = Function {
-                    name: name.clone(),
-                    params: params.clone(),
-                    body: *body,
-                };
-                self.functions.insert(name, function);
+                self.functions.insert(name.clone(), Function { name, params, body: *body });
             }
+
             Stmt::Print(expr) => {
                 let value = self.eval_expr(expr);
                 println!("{}", value);
@@ -87,37 +107,49 @@ impl Vm {
             Expr::Number(n) => n,
             Expr::Boolean(b) => if b { 1 } else { 0 },
             Expr::Char(c) => c as i32,
-            Expr::Variable(name) => *self
-                .variables
-                .get(&name)
-                .expect(&format!("Variable '{}' not found", name)),
-            Expr::BinaryOp { op, left, right } => {
-                match op {
-                    BinOp::Assign => self.handle_assign(*left, *right),
-                    _ => {
-                        let l = self.eval_expr(*left);
-                        let r = self.eval_expr(*right);
-                        match op {
-                            BinOp::Add => l + r,
-                            BinOp::Sub => l - r,
-                            BinOp::Mul => l * r,
-                            BinOp::Div => {
-                                if r == 0 {
-                                    panic!("Division by zero");
-                                }
-                                l / r
-                            }
-                            BinOp::Equal => if l == r { 1 } else { 0 },
-                            BinOp::NotEqual => if l != r { 1 } else { 0 },
-                            BinOp::LessThan => if l < r { 1 } else { 0 },
-                            BinOp::GreaterThan => if l > r { 1 } else { 0 },
-                            BinOp::LessEqual => if l <= r { 1 } else { 0 },
-                            BinOp::GreaterEqual => if l >= r { 1 } else { 0 },
-                            BinOp::And => if l != 0 && r != 0 { 1 } else { 0 },
-                            BinOp::Or => if l != 0 || r != 0 { 1 } else { 0 },
-                            _ => unreachable!(),
-                        }
+            Expr::Variable(name) => {
+                for scope in self.variables.iter().rev() {
+                    if let Some(val) = scope.get(&name) {
+                        return *val;
                     }
+                }
+                if let Some(val) = self.constants.get(&name) {
+                    return *val;
+                }
+                panic!("Variable '{}' not found", name);
+            }
+            Expr::EnumValue(enum_name, variant_name) => {
+                let key = format!("{}::{}", enum_name, variant_name);
+                *self.constants.get(&key).unwrap_or_else(|| {
+                    panic!("Enum variant '{}' not found", key)
+                })
+            }
+            Expr::BinaryOp { op, left, right } => {
+                if op == BinOp::Assign {
+                    return self.handle_assign(*left, *right);
+                }
+
+                let l = self.eval_expr(*left);
+                let r = self.eval_expr(*right);
+                match op {
+                    BinOp::Add => l + r,
+                    BinOp::Sub => l - r,
+                    BinOp::Mul => l * r,
+                    BinOp::Div => {
+                        if r == 0 {
+                            panic!("Division by zero");
+                        }
+                        l / r
+                    }
+                    BinOp::Equal => (l == r) as i32,
+                    BinOp::NotEqual => (l != r) as i32,
+                    BinOp::LessThan => (l < r) as i32,
+                    BinOp::GreaterThan => (l > r) as i32,
+                    BinOp::LessEqual => (l <= r) as i32,
+                    BinOp::GreaterEqual => (l >= r) as i32,
+                    BinOp::And => if l != 0 && r != 0 { 1 } else { 0 },
+                    BinOp::Or => if l != 0 || r != 0 { 1 } else { 0 },
+                    _ => unreachable!(),
                 }
             }
             Expr::UnaryOp { op, expr } => {
@@ -127,11 +159,9 @@ impl Vm {
                 }
             }
             Expr::FunctionCall { name, args } => {
-                let function = self
-                    .functions
-                    .get(&name)
-                    .expect(&format!("Function '{}' not found", name))
-                    .clone();
+                let function = self.functions.get(&name).unwrap_or_else(|| {
+                    panic!("Function '{}' not found", name)
+                }).clone();
 
                 let arg_values: Vec<i32> =
                     args.into_iter().map(|arg| self.eval_expr(arg)).collect();
@@ -145,17 +175,22 @@ impl Vm {
                     );
                 }
 
-                let old_vars = self.variables.clone();
-                self.variables.clear();
-
-                for (param, val) in function.params.iter().zip(arg_values.into_iter()) {
-                    self.variables.insert(param.clone(), val);
+                self.variables.push(HashMap::new());
+                for (param, val) in function.params.iter().zip(arg_values) {
+                    self.variables.last_mut().unwrap().insert(param.clone(), val);
                 }
 
-                self.execute(function.body.clone());
-                let result = self.get_result();
-                self.variables = old_vars;
+                let prev_result = self.last_result;
+                let prev_should_return = self.should_return;
+                self.last_result = 0;
+                self.should_return = false;
 
+                self.execute(function.body.clone());
+
+                let result = self.last_result;
+                self.variables.pop();
+                self.last_result = prev_result;
+                self.should_return = prev_should_return;
                 result
             }
         }
@@ -164,13 +199,21 @@ impl Vm {
     fn handle_assign(&mut self, left: Expr, right: Expr) -> i32 {
         if let Expr::Variable(name) = left {
             let val = self.eval_expr(right);
-            self.variables.insert(name, val);
+            for scope in self.variables.iter_mut().rev() {
+                if scope.contains_key(&name) {
+                    scope.insert(name, val);
+                    return val;
+                }
+            }
+            self.variables.last_mut().unwrap().insert(name, val);
             val
         } else {
             panic!("Left-hand side of assignment must be a variable");
         }
     }
 }
+
+
 
 
 
@@ -234,7 +277,7 @@ mod tests {
                 if (n == 0) {
                     return 1;
                 } else {
-                    return n * factorial(n - 1);
+                    return n * factorial(n - 1); // <-- semicolon OK
                 }
             }
             let result = factorial(5);
@@ -242,6 +285,7 @@ mod tests {
         ";
         assert_eq!(run(code), 120);
     }
+    
 
     #[test]
     fn test_if_else() {
@@ -262,8 +306,9 @@ mod tests {
             let i = 0;
             let sum = 0;
             while (i < 5) {
-                let sum = sum + i;
-                let i = i + 1;
+                sum = sum + i;
+                i = i + 1;
+
             }
             return sum;
         ";
@@ -295,15 +340,16 @@ mod tests {
             while (i < 3) {
                 let j = 0;
                 while (j < 2) {
-                    let sum = sum + i + j;
-                    let j = j + 1;
+                    sum = sum + i + j;
+                    j = j + 1;
                 }
-                let i = i + 1;
+                i = i + 1;
             }
             return sum;
         ";
         assert_eq!(run(code), 9);
     }
+    
 
     #[test]
     fn test_function_multiple_params() {
@@ -401,9 +447,10 @@ mod tests {
     #[test]
 fn test_implicit_let() {
     let code = "
-        x = 7
-        y = x + 3
-        return y
+            x = 7;
+            y = x + 3;
+            return y;
+
     ";
     assert_eq!(run(code), 10);
 }

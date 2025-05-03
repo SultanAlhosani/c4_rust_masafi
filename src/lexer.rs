@@ -21,8 +21,8 @@ pub enum Token {
     NotEqual,
     LessThan,
     GreaterThan,
-    LessEqual,      // <=
-    GreaterEqual,   // >=
+    LessEqual,
+    GreaterEqual,
     Eof,
     Unknown(char),
     True,
@@ -30,10 +30,11 @@ pub enum Token {
     Char(char),
     Fn,
     Comma,
-    And,     // &&
-    Or,      // ||
-    Not,     // !
-    Print,   // ✅ NEW
+    And,
+    Or,
+    Not,
+    Print,
+    Enum,
 }
 
 pub struct Lexer {
@@ -54,7 +55,7 @@ impl Lexer {
     }
 
     pub fn next_token(&mut self) -> Token {
-        self.skip_whitespace();
+        self.skip_whitespace_and_comments();
 
         if let Some(ch) = self.current_char() {
             match ch {
@@ -75,7 +76,21 @@ impl Lexer {
                 '+' => { self.advance(); Token::Add }
                 '-' => { self.advance(); Token::Sub }
                 '*' => { self.advance(); Token::Mul }
-                '/' => { self.advance(); Token::Div }
+                '/' => {
+                    self.advance();
+                    if self.match_char('/') {
+                        self.advance();
+                        while let Some(c) = self.current_char() {
+                            if c == '\n' {
+                                break;
+                            }
+                            self.advance();
+                        }
+                        self.next_token()
+                    } else {
+                        Token::Div
+                    }
+                }
                 '(' => { self.advance(); Token::OpenParen }
                 ')' => { self.advance(); Token::CloseParen }
                 '{' => { self.advance(); Token::OpenBrace }
@@ -83,7 +98,7 @@ impl Lexer {
                 ';' => { self.advance(); Token::Semicolon }
                 '=' => {
                     self.advance();
-                    if self.match_char('=') {
+                    if self.current_char() == Some('=') {
                         self.advance();
                         Token::Equal
                     } else {
@@ -92,7 +107,7 @@ impl Lexer {
                 }
                 '!' => {
                     self.advance();
-                    if self.match_char('=') {
+                    if self.current_char() == Some('=') {
                         self.advance();
                         Token::NotEqual
                     } else {
@@ -101,7 +116,7 @@ impl Lexer {
                 }
                 '<' => {
                     self.advance();
-                    if self.match_char('=') {
+                    if self.current_char() == Some('=') {
                         self.advance();
                         Token::LessEqual
                     } else {
@@ -110,31 +125,30 @@ impl Lexer {
                 }
                 '>' => {
                     self.advance();
-                    if self.match_char('=') {
+                    if self.current_char() == Some('=') {
                         self.advance();
                         Token::GreaterEqual
                     } else {
                         Token::GreaterThan
                     }
                 }
-
                 ',' => { self.advance(); Token::Comma }
                 '&' => {
                     self.advance();
-                    if self.match_char('&') {
+                    if self.current_char() == Some('&') {
                         self.advance();
                         Token::And
                     } else {
-                        panic!("Unexpected character '&' at line {}, col {}", self.line, self.col);
+                        panic!("Expected '&&' but found '&' at line {}, col {}", self.line, self.col);
                     }
                 }
                 '|' => {
                     self.advance();
-                    if self.match_char('|') {
+                    if self.current_char() == Some('|') {
                         self.advance();
                         Token::Or
                     } else {
-                        panic!("Unexpected character '|' at line {}, col {}", self.line, self.col);
+                        panic!("Expected '||' but found '|' at line {}, col {}", self.line, self.col);
                     }
                 }
                 _ => {
@@ -180,8 +194,27 @@ impl Lexer {
             "true" => Token::True,
             "false" => Token::False,
             "fn" => Token::Fn,
-            "print" => Token::Print, // ✅ added
+            "print" => Token::Print,
+            "enum" => Token::Enum,
             _ => Token::Identifier(word),
+        }
+    }
+
+    fn skip_whitespace_and_comments(&mut self) {
+        loop {
+            self.skip_whitespace();
+            if self.current_char() == Some('/') && self.match_char('/') {
+                self.advance();
+                self.advance();
+                while let Some(c) = self.current_char() {
+                    if c == '\n' {
+                        break;
+                    }
+                    self.advance();
+                }
+            } else {
+                break;
+            }
         }
     }
 
@@ -203,7 +236,6 @@ impl Lexer {
     fn match_char(&self, expected: char) -> bool {
         self.input.get(self.pos + 1) == Some(&expected)
     }
-    
 
     fn advance(&mut self) {
         if let Some(ch) = self.input.get(self.pos) {

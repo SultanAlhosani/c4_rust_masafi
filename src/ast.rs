@@ -21,11 +21,13 @@ pub enum Expr {
         name: String,    // Name of the function
         args: Vec<Expr>, // Arguments for the function call
     },
+    EnumValue(String, String), // ✅ NEW: Enum access like EnumName.Variant
 }
 
 /// Represents the different binary operators in the language.
 /// Includes arithmetic, comparison, and logical operators.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+
 pub enum BinOp {
     Add,
     Sub,
@@ -35,11 +37,11 @@ pub enum BinOp {
     NotEqual,    // !=
     LessThan,    // <
     GreaterThan, // >
-    LessEqual,      // ✅ add this
-    GreaterEqual,   // ✅ and this
+    LessEqual,   // <=
+    GreaterEqual,// >=
     And,         // &&
     Or,          // ||
-    Assign, // =
+    Assign,      // =
 }
 
 /// Represents the different unary operators in the language.
@@ -76,5 +78,6 @@ pub enum Stmt {
         params: Vec<String>,
         body: Box<Stmt>,
     },
-    Print(Expr), // ✅ NEW: print statement
+    Print(Expr), // print statement
 }
+
