@@ -1,4 +1,10 @@
-let x = (int)"hello";    // cast string to int → expect 0
-let y = (char)300;       // cast int to char → expect 300 & 0xFF = 44
-let z = (int)123;        // cast int to int → should be 123
-return x + y + z;        // expect 0 + 44 + 123 = 167
+void greet() {
+    print("Hello from C4!");
+}
+
+int main() {
+    greet();
+    return 0;
+}
+
+main();

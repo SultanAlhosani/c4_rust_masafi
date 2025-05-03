@@ -65,6 +65,7 @@ pub enum Type {
     Int,
     Char,
     Pointer(Box<Type>),
+    Void, // ✅ New
 }
 
 
@@ -72,7 +73,15 @@ pub enum Type {
 /// This includes control flow, variable declarations, and functions.
 #[derive(Debug, Clone)]
 pub enum Stmt {
+    Let { name: String, value: Expr },
     Return(Expr),
+    Print(Expr),
+    ExprStmt(Expr),
+    Block(Vec<Stmt>),
+    Assign {
+        name: String,
+        value: Expr,
+    },
     If {
         condition: Expr,
         then_branch: Box<Stmt>,
@@ -82,20 +91,10 @@ pub enum Stmt {
         condition: Expr,
         body: Box<Stmt>,
     },
-    Let {
-        name: String,
-        value: Expr,
-    },
-    Assign {
-        name: String,
-        value: Expr,
-    },
-    Block(Vec<Stmt>),
     Function {
         name: String,
         params: Vec<String>,
         body: Box<Stmt>,
+        return_type: Option<Type>, // ✅ Add this line
     },
-    Print(Expr), // print statement
-    ExprStmt(Expr), 
 }

@@ -36,13 +36,61 @@ impl<'a> Parser<'a> {
 
     fn statement(&mut self) -> Stmt {
         let (line, col) = self.lexer.get_position();
+    
+        // ✅ C-style variable declaration: int x = 5;
+        if let Token::Identifier(ref type_name) = self.current_token {
+            if matches!(type_name.as_str(), "int" | "char" | "bool" | "str" | "void") {
+                let var_type = self.parse_type().unwrap(); // this does self.next()
+            
+                let (name_line, name_col) = self.lexer.get_position();
+                let name = self.expect_identifier("Expected name after type", name_line, name_col);
+            
+                if self.current_token == Token::OpenParen {
+                    // ✅ Function declaration: int foo(...) { ... }
+                    self.next();
+                    let mut params = Vec::new();
+                    while self.current_token != Token::CloseParen {
+                        let param_name = self.expect_identifier("Expected parameter name", line, col);
+                        params.push(param_name);
+                        if self.current_token == Token::Comma {
+                            self.next();
+                        } else if self.current_token != Token::CloseParen {
+                            panic!("Expected ',' or ')' in parameter list at line {}, column {}", line, col);
+                        }
+                    }
+                    self.expect_token(Token::CloseParen, "Expected ')' after parameters", line, col);
+                    let body = Box::new(self.block());
+                    return Stmt::Function {
+                        name,
+                        params,
+                        body,
+                        return_type: Some(var_type),
+                    };
+                } else {
+                    // Variable declaration
+                    self.expect_token(Token::Assign, "Expected '=' after variable name", line, col);
+                    let value = self.expression();
+                    self.type_map.insert(name.clone(), var_type);
+                    self.consume_semicolon();
+                    return Stmt::Let { name, value };
+                }
+            }
+            
+        }
+    
         match &self.current_token {
             Token::Return => {
                 self.next();
-                let expr = self.expression();
-                self.consume_semicolon();
-                Stmt::Return(expr)
+                if self.current_token == Token::Semicolon {
+                    self.next();
+                    Stmt::Return(Expr::Number(0)) // void return
+                } else {
+                    let expr = self.expression();
+                    self.consume_semicolon();
+                    Stmt::Return(expr)
+                }
             }
+    
             Token::Let => {
                 self.next();
                 let mut decls = Vec::new();
@@ -58,7 +106,7 @@ impl<'a> Parser<'a> {
                     let value = self.expression();
                     self.type_map.insert(name.clone(), var_type);
                     decls.push(Stmt::Let { name, value });
-
+    
                     if self.current_token == Token::Comma {
                         self.next();
                     } else {
@@ -72,6 +120,7 @@ impl<'a> Parser<'a> {
                     Stmt::Block(decls)
                 }
             }
+    
             Token::Print => {
                 self.next();
                 self.expect_token(Token::OpenParen, "Expected '(' after 'print'", line, col);
@@ -80,6 +129,7 @@ impl<'a> Parser<'a> {
                 self.consume_semicolon();
                 Stmt::Print(expr)
             }
+    
             Token::If => {
                 self.next();
                 self.expect_token(Token::OpenParen, "Expected '(' after 'if'", line, col);
@@ -94,6 +144,7 @@ impl<'a> Parser<'a> {
                 };
                 Stmt::If { condition, then_branch, else_branch }
             }
+    
             Token::While => {
                 self.next();
                 self.expect_token(Token::OpenParen, "Expected '(' after 'while'", line, col);
@@ -102,29 +153,9 @@ impl<'a> Parser<'a> {
                 let body = Box::new(self.statement());
                 Stmt::While { condition, body }
             }
+    
             Token::OpenBrace => self.block(),
-            Token::Fn => {
-                self.next();
-                let name = self.expect_identifier("Expected function name after 'fn'", line, col);
-                self.expect_token(Token::OpenParen, "Expected '(' after function name", line, col);
-                let mut params = Vec::new();
-                while self.current_token != Token::CloseParen {
-                    if let Token::Identifier(param) = &self.current_token {
-                        params.push(param.clone());
-                        self.next();
-                        if self.current_token == Token::Comma {
-                            self.next();
-                        } else if self.current_token != Token::CloseParen {
-                            panic!("Expected ',' or ')' in parameter list at line {}, column {}", line, col);
-                        }
-                    } else {
-                        panic!("Expected parameter name at line {}, column {}", line, col);
-                    }
-                }
-                self.next();
-                let body = Box::new(self.block());
-                Stmt::Function { name, params, body }
-            }
+    
             Token::Enum => {
                 self.next();
                 let enum_name = format!("__anon_enum_{}", line);
@@ -153,6 +184,7 @@ impl<'a> Parser<'a> {
                 self.consume_semicolon();
                 Stmt::Block(vec![])
             }
+    
             _ => {
                 let expr = self.expression();
                 self.consume_semicolon();
@@ -160,6 +192,8 @@ impl<'a> Parser<'a> {
             }
         }
     }
+    
+    
 
     fn expression(&mut self) -> Expr {
         self.parse_assignment()
@@ -328,20 +362,13 @@ impl<'a> Parser<'a> {
         match self.current_token {
             Token::Identifier(ref name) => {
                 match name.as_str() {
-                    "int" => {
-                        self.next(); Some(Type::Int)
-                    }
-                    "char" => {
-                        self.next(); Some(Type::Char)
-                    }
-                    "bool" => {
-                        self.next(); Some(Type::Char) // Treat `bool` as 1-byte like `char`
-                    }
-                    "str" => {
-                        self.next(); Some(Type::Pointer(Box::new(Type::Char))) // Treat `str` as pointer
-                    }
+                    "int" => { self.next(); Some(Type::Int) }
+                    "char" => { self.next(); Some(Type::Char) }
+                    "bool" => { self.next(); Some(Type::Char) } // optional simplification
+                    "str" => { self.next(); Some(Type::Pointer(Box::new(Type::Char))) }
+                    "void" => { self.next(); Some(Type::Void) } // ✅ New
                     other => panic!("Unknown type '{}'", other),
-                }
+                }                
             }
             Token::Mul => {
                 self.next();

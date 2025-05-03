@@ -218,7 +218,7 @@ impl Lexer {
             }
         }
         let word: String = self.input[start..self.pos].iter().collect();
-
+        
         match word.as_str() {
             "return" => Token::Return,
             "if" => Token::If,
@@ -231,6 +231,8 @@ impl Lexer {
             "print" => Token::Print,
             "enum" => Token::Enum,
             "sizeof" => Token::Sizeof, // ✅ NEW
+            "void" => Token::Identifier("void".to_string()), // ✅ add this line
+
             _ => Token::Identifier(word),
         }
     }

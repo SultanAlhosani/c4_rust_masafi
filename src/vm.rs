@@ -6,7 +6,9 @@ pub struct Function {
     pub name: String,
     pub params: Vec<String>,
     pub body: Stmt,
+    pub return_type: Option<Type>, // ✅ Optional: None for void
 }
+
 
 #[derive(Debug, Clone)]
 pub enum Value {
@@ -106,9 +108,15 @@ impl Vm {
                     self.variables.pop();
                 }
             }
-            Stmt::Function { name, params, body } => {
-                self.functions.insert(name.clone(), Function { name, params, body: *body });
+            Stmt::Function { name, params, body, return_type } => {
+                self.functions.insert(name.clone(), Function {
+                    name,
+                    params,
+                    body: *body,
+                    return_type: None, // or Some(Type::Int) if you want to default to int
+                });
             }
+            
             Stmt::Print(expr) => {
                 let val = self.eval_expr(expr);
                 match val {
@@ -140,6 +148,7 @@ impl Vm {
                     Type::Int => 4,
                     Type::Char => 1,
                     Type::Pointer(_) => 8,
+                    Type::Void => 0,
                 };
                 Value::Int(size)
             }
@@ -307,7 +316,7 @@ mod tests {
     #[test]
     fn test_function_call() {
         let code = "
-            fn square(n) {
+            int square(n) {
                 return n * n;
             }
             let result = square(6);
@@ -319,7 +328,7 @@ mod tests {
     #[test]
     fn test_scope_isolation() {
         let code = "
-            fn test(x) { return x + 1; }
+            int test(x) { return x + 1; }
             let x = 5;
             let y = test(10);
             return x + y;
@@ -330,7 +339,7 @@ mod tests {
     #[test]
     fn test_recursion() {
         let code = "
-            fn factorial(n) {
+            int factorial(n) {
                 if (n == 0) {
                     return 1;
                 } else {
@@ -411,7 +420,7 @@ mod tests {
     #[test]
     fn test_function_multiple_params() {
         let code = "
-            fn add(a, b, c) {
+            int add(a, b, c) {
                 return a + b + c;
             }
             let result = add(1, 2, 3);
@@ -464,7 +473,7 @@ mod tests {
     #[test]
     fn test_recursive_function_multiple_params() {
         let code = "
-            fn power(base, exp) {
+            int power(base, exp) {
                 if (exp == 0) {
                     return 1;
                 } else {
@@ -490,10 +499,10 @@ mod tests {
     #[test]
     fn test_function_overwriting() {
         let code = "
-            fn test() {
+            int test() {
                 return 1;
             }
-            fn test() {
+            int test() {
                 return 2;
             }
             return test();
@@ -517,7 +526,7 @@ fn test_global_variable_usage() {
     let code = "
         let x = 42;
 
-        fn show() {
+        int show() {
             return x;
         }
 
@@ -555,7 +564,7 @@ fn test_global_variable_access_in_function() {
     let code = r#"
         let x = 123;
 
-        fn get() {
+        int get() {
             return x;
         }
 
@@ -571,7 +580,7 @@ fn test_global_variable_modification_in_function() {
     let code = r#"
         let x = 10;
 
-        fn modify() {
+        int modify() {
             x = x + 5;
         }
 
@@ -664,6 +673,33 @@ fn test_type_casting() {
     "#;
     assert_eq!(run(code), 167);
 }
+
+#[test]
+fn test_print_from_main() {
+    let code = r#"
+        void greet() {
+            print("Hello from C4!");
+        }
+
+        int main() {
+            greet();
+            return 42;
+        }
+
+        return main();
+    "#;
+
+    let lexer = Lexer::new(code);
+    let mut vm = Vm::new();
+    let mut parser = Parser::new(lexer, &mut vm);
+    let stmts = parser.parse();
+    for stmt in stmts {
+        vm.execute(stmt);
+    }
+
+    assert_eq!(vm.get_result(), 42);
+}
+
 
     
 }
