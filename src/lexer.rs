@@ -37,6 +37,7 @@ pub enum Token {
     Enum,
     StringLiteral(String),
     Sizeof, // ✅ NEW
+    Colon,
 }
 
 pub struct Lexer {
@@ -183,6 +184,7 @@ impl Lexer {
                         panic!("Expected '||' but found '|' at line {}, col {}", self.line, self.col);
                     }
                 }
+                ':' => { self.advance(); Token::Colon }
                 _ => {
                     self.advance();
                     Token::Unknown(ch)

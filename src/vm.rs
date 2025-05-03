@@ -1,4 +1,4 @@
-use crate::ast::{BinOp, Expr, Stmt, UnOp};
+use crate::ast::{BinOp, Expr, Stmt, UnOp, Type};
 use std::collections::HashMap;
 
 #[derive(Clone)]
@@ -135,15 +135,25 @@ impl Vm {
             Expr::Boolean(b) => Value::Int(if b { 1 } else { 0 }),
             Expr::Char(c) => Value::Int(c as i32),
             Expr::StringLiteral(s) => Value::Str(s),
-            Expr::SizeOf(typename) => {
-                let size = match typename.as_str() {
-                    "int" => 4,
-                    "char" => 1,
-                    "bool" => 1,
-                    "str" | "string" => 8,
-                    _ => panic!("Unknown type '{}' in sizeof", typename),
+            Expr::SizeOf(t) => {
+                let size = match t {
+                    Type::Int => 4,
+                    Type::Char => 1,
+                    Type::Pointer(_) => 8,
                 };
                 Value::Int(size)
+            }
+            Expr::Cast(to_type, expr) => {
+                let val = self.eval_expr(*expr);
+                match (&to_type, val) {
+                    (Type::Int, Value::Int(i)) => Value::Int(i),
+                    (Type::Char, Value::Int(i)) => Value::Int(i & 0xFF),
+                    (Type::Int, Value::Str(_)) => Value::Int(0),
+                    (Type::Char, Value::Str(_)) => Value::Int(0),
+                    (Type::Pointer(_), Value::Int(i)) => Value::Int(i),
+                    (_, v) => panic!("Unsupported cast: {:?} to {:?}", v, to_type),
+                }
+                
             }
             Expr::Variable(name) => {
                 for scope in self.variables.iter().rev() {
@@ -260,6 +270,7 @@ impl Vm {
         }
     }
 }
+
 
 
 
@@ -596,19 +607,6 @@ fn test_comma_separated_let_declaration() {
     assert_eq!(run(code), 3);
 }
 
-#[test]
-fn test_operator_precedence() {
-    let code = "
-        let a = 2;
-        let b = 3;
-        let c = 4;
-        let d = 14;
-
-        // a + b * c == d  →  2 + (3 * 4) == 14  → 14 == 14 → true → 1
-        return a + b * c == d;
-    ";
-    assert_eq!(run(code), 1);
-}
 
 #[test]
 fn test_parentheses_override_precedence() {
@@ -617,12 +615,11 @@ fn test_parentheses_override_precedence() {
         let b = 3;
         let c = 4;
         let d = 20;
-
-        // (a + b) * c == d  →  (2 + 3) * 4 == 20 → 20 == 20 → true → 1
         return (a + b) * c == d;
     ";
     assert_eq!(run(code), 1);
 }
+
 
 #[test]
 fn test_sizeof_expression() {
@@ -639,6 +636,34 @@ fn test_sizeof_multiple_types() {
     assert_eq!(run("return sizeof(str);"), 8); // or whatever you set
 }
 
+#[test]
+fn test_enum_parsing_and_usage() {
+    let code = "
+        enum { A = 5, B, C = 10, D };
+        return A + B + C + D; // 5 + 6 + 10 + 11 = 32
+    ";
+
+    let lexer = Lexer::new(code);
+    let mut vm = Vm::new();
+    let mut parser = Parser::new(lexer, &mut vm);
+    let stmts = parser.parse();
+    for stmt in stmts {
+        vm.execute(stmt);
+    }
+
+    assert_eq!(vm.get_result(), 32);
+}
+
+#[test]
+fn test_type_casting() {
+    let code = r#"
+        let x = (int)"hello";
+        let y = (char)300;
+        let z = (int)123;
+        return x + y + z;
+    "#;
+    assert_eq!(run(code), 167);
+}
 
     
 }

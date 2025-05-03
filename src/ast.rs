@@ -23,7 +23,8 @@ pub enum Expr {
         args: Vec<Expr>,
     },
     EnumValue(String, String),
-    SizeOf(String), // ✅ NEW: represents sizeof(type)
+    SizeOf(Type), // ✅ FIXED: represents sizeof(type)
+    Cast(Type, Box<Expr>),
 }
 
 
@@ -58,6 +59,14 @@ pub enum Value {
     Int(i32),
     Str(String),
 }
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Type {
+    Int,
+    Char,
+    Pointer(Box<Type>),
+}
+
 
 /// Represents the different types of statements in the language.
 /// This includes control flow, variable declarations, and functions.
