@@ -11,20 +11,21 @@ pub enum Expr {
     Char(char),
     StringLiteral(String), // ✅ NEW: string literal support
     BinaryOp {
-        op: BinOp,        // Binary operator
-        left: Box<Expr>,  // Left operand
-        right: Box<Expr>, // Right operand
+        op: BinOp,
+        left: Box<Expr>,
+        right: Box<Expr>,
     },
     UnaryOp {
-        op: UnOp,         // Unary operator
-        expr: Box<Expr>,  // Operand
+        op: UnOp,
+        expr: Box<Expr>,
     },
     FunctionCall {
-        name: String,    // Name of the function
-        args: Vec<Expr>, // Arguments for the function call
+        name: String,
+        args: Vec<Expr>,
     },
     EnumValue(String, String), // ✅ Enum access like EnumName.Variant
 }
+
 
 
 /// Represents the different binary operators in the language.

@@ -16,6 +16,13 @@ pub struct Vm {
     pub should_return: bool,
 }
 
+#[derive(Debug, Clone)]
+pub enum Value {
+    Int(i32),
+    Str(String),
+}
+
+
 impl Vm {
     pub fn new() -> Self {
         Self {
