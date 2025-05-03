@@ -36,6 +36,7 @@ pub enum Token {
     Print,
     Enum,
     StringLiteral(String),
+    Sizeof, // ✅ NEW
 }
 
 pub struct Lexer {
@@ -61,7 +62,7 @@ impl Lexer {
         if let Some(ch) = self.current_char() {
             match ch {
                 '"' => {
-                    self.advance(); // skip opening quote
+                    self.advance();
                     let mut string = String::new();
                     while let Some(c) = self.current_char() {
                         if c == '"' {
@@ -85,7 +86,7 @@ impl Lexer {
                     if self.current_char() != Some('"') {
                         panic!("Unterminated string literal at line {}, col {}", self.line, self.col);
                     }
-                    self.advance(); // skip closing quote
+                    self.advance();
                     Token::StringLiteral(string)
                 }
 
@@ -227,6 +228,7 @@ impl Lexer {
             "fn" => Token::Fn,
             "print" => Token::Print,
             "enum" => Token::Enum,
+            "sizeof" => Token::Sizeof, // ✅ NEW
             _ => Token::Identifier(word),
         }
     }

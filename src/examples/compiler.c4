@@ -1,5 +1,5 @@
-let x = 1, y = 2, z = x + y;
-print(x);
-print(y);
-print(z);
-return z;
+let a = sizeof(int);
+let b = sizeof(bool);
+print(a); // prints 4
+print(b); // prints 1
+return a + b;

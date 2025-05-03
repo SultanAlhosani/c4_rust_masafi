@@ -75,7 +75,7 @@ impl<'a> Parser<'a> {
                 self.expect_token(Token::CloseParen, "Expected ')' after expression", line, col);
                 self.consume_semicolon();
                 Stmt::Print(expr)
-            }
+            }         
             Token::If => {
                 self.next();
                 self.expect_token(Token::OpenParen, "Expected '(' after 'if'", line, col);
@@ -288,6 +288,21 @@ impl<'a> Parser<'a> {
                 self.next();
                 Expr::Number(val)
             }
+            Token::Sizeof => {
+                self.next();
+                self.expect_token(Token::OpenParen, "Expected '(' after sizeof", line, col);
+            
+                let type_name = if let Token::Identifier(name) = &self.current_token {
+                    name.clone()
+                } else {
+                    panic!("Expected type name inside sizeof at line {}, col {}", line, col);
+                };
+                self.next();
+            
+                self.expect_token(Token::CloseParen, "Expected ')' after type name", line, col);
+            
+                Expr::SizeOf(type_name)
+            }            
             Token::True => {
                 self.next();
                 Expr::Boolean(true)

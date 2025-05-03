@@ -51,7 +51,6 @@ impl Vm {
             _ => None,
         }
     }
-    
 
     pub fn execute(&mut self, stmt: Stmt) {
         if self.should_return {
@@ -94,23 +93,19 @@ impl Vm {
             }
             Stmt::Block(stmts) => {
                 let is_single_scope = stmts.iter().all(|s| matches!(s, Stmt::Let { .. }));
-                
                 if !is_single_scope {
                     self.variables.push(HashMap::new());
                 }
-            
                 for stmt in stmts {
                     self.execute(stmt);
                     if self.should_return {
                         break;
                     }
                 }
-            
                 if !is_single_scope {
-                    self.variables.pop(); // only pop if you pushed
+                    self.variables.pop();
                 }
             }
-            
             Stmt::Function { name, params, body } => {
                 self.functions.insert(name.clone(), Function { name, params, body: *body });
             }
@@ -140,6 +135,16 @@ impl Vm {
             Expr::Boolean(b) => Value::Int(if b { 1 } else { 0 }),
             Expr::Char(c) => Value::Int(c as i32),
             Expr::StringLiteral(s) => Value::Str(s),
+            Expr::SizeOf(typename) => {
+                let size = match typename.as_str() {
+                    "int" => 4,
+                    "char" => 1,
+                    "bool" => 1,
+                    "str" | "string" => 8,
+                    _ => panic!("Unknown type '{}' in sizeof", typename),
+                };
+                Value::Int(size)
+            }
             Expr::Variable(name) => {
                 for scope in self.variables.iter().rev() {
                     if let Some(val) = scope.get(&name) {
@@ -244,7 +249,7 @@ impl Vm {
             let val = self.eval_expr(right);
             for scope in self.variables.iter_mut().rev() {
                 if scope.contains_key(&name) {
-                    scope.insert(name, val.clone());
+                    scope.insert(name.clone(), val.clone());
                     return val;
                 }
             }
@@ -255,6 +260,7 @@ impl Vm {
         }
     }
 }
+
 
 
 #[cfg(test)]
@@ -589,6 +595,50 @@ fn test_comma_separated_let_declaration() {
     ";
     assert_eq!(run(code), 3);
 }
+
+#[test]
+fn test_operator_precedence() {
+    let code = "
+        let a = 2;
+        let b = 3;
+        let c = 4;
+        let d = 14;
+
+        // a + b * c == d  →  2 + (3 * 4) == 14  → 14 == 14 → true → 1
+        return a + b * c == d;
+    ";
+    assert_eq!(run(code), 1);
+}
+
+#[test]
+fn test_parentheses_override_precedence() {
+    let code = "
+        let a = 2;
+        let b = 3;
+        let c = 4;
+        let d = 20;
+
+        // (a + b) * c == d  →  (2 + 3) * 4 == 20 → 20 == 20 → true → 1
+        return (a + b) * c == d;
+    ";
+    assert_eq!(run(code), 1);
+}
+
+#[test]
+fn test_sizeof_expression() {
+    let code = "
+        return sizeof(int);
+    ";
+    assert_eq!(run(code), 4); // assuming `int` maps to size 4 in your parser
+}
+
+#[test]
+fn test_sizeof_multiple_types() {
+    assert_eq!(run("return sizeof(char);"), 1);
+    assert_eq!(run("return sizeof(bool);"), 1);
+    assert_eq!(run("return sizeof(str);"), 8); // or whatever you set
+}
+
 
     
 }
