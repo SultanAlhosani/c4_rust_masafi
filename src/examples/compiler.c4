@@ -1,0 +1,6 @@
+fn identity(x) {
+    return x;
+}
+
+let result = identity(42);
+return result;
