@@ -1,12 +1,6 @@
-use crate::ast::{BinOp, Expr, Stmt};
+use crate::ast::{BinOp, Expr, Stmt, UnOp};
 use std::collections::HashMap;
 
-/// Represents a user-defined function in the virtual machine.
-///
-/// # Fields
-/// - `name`: The name of the function.
-/// - `params`: The list of parameter names.
-/// - `body`: The body of the function as a statement.
 #[derive(Clone)]
 pub struct Function {
     pub name: String,
@@ -14,9 +8,6 @@ pub struct Function {
     pub body: Stmt,
 }
 
-/// The virtual machine (VM) responsible for executing statements and evaluating expressions.
-///
-/// The VM maintains a state that includes variables, functions, and the result of the last executed statement.
 pub struct Vm {
     pub last_result: i32,
     pub variables: HashMap<String, i32>,
@@ -24,10 +15,6 @@ pub struct Vm {
 }
 
 impl Vm {
-    /// Creates a new `Vm` instance.
-    ///
-    /// # Returns
-    /// A new `Vm` instance with an empty state.
     pub fn new() -> Self {
         Self {
             last_result: 0,
@@ -36,26 +23,14 @@ impl Vm {
         }
     }
 
-    /// Sets the result of the last executed statement.
-    ///
-    /// # Parameters
-    /// - `value`: The value to set as the result.
     pub fn set_result(&mut self, value: i32) {
         self.last_result = value;
     }
 
-    /// Retrieves the result of the last executed statement.
-    ///
-    /// # Returns
-    /// The value of the last result.
     pub fn get_result(&self) -> i32 {
         self.last_result
     }
 
-    /// Executes a statement in the virtual machine.
-    ///
-    /// # Parameters
-    /// - `stmt`: The statement to execute.
     pub fn execute(&mut self, stmt: Stmt) {
         match stmt {
             Stmt::Return(expr) => {
@@ -104,25 +79,18 @@ impl Vm {
                 };
                 self.functions.insert(name, function);
             }
+            Stmt::Print(expr) => {
+                let value = self.eval_expr(expr);
+                println!("{}", value);
+            }
         }
     }
 
-    /// Evaluates an expression in the virtual machine.
-    ///
-    /// # Parameters
-    /// - `expr`: The expression to evaluate.
-    ///
-    /// # Returns
-    /// The result of the evaluated expression as an integer.
     fn eval_expr(&mut self, expr: Expr) -> i32 {
         match expr {
             Expr::Number(n) => n,
             Expr::Boolean(b) => {
-                if b {
-                    1
-                } else {
-                    0
-                }
+                if b { 1 } else { 0 }
             }
             Expr::Char(c) => c as i32,
             Expr::Variable(name) => *self
@@ -142,45 +110,27 @@ impl Vm {
                         }
                         l / r
                     }
-                    BinOp::Equal => {
-                        if l == r {
-                            1
-                        } else {
-                            0
-                        }
-                    }
-                    BinOp::NotEqual => {
-                        if l != r {
-                            1
-                        } else {
-                            0
-                        }
-                    }
-                    BinOp::LessThan => {
-                        if l < r {
-                            1
-                        } else {
-                            0
-                        }
-                    }
-                    BinOp::GreaterThan => {
-                        if l > r {
-                            1
-                        } else {
-                            0
-                        }
-                    }
+                    BinOp::Equal => if l == r { 1 } else { 0 },
+                    BinOp::NotEqual => if l != r { 1 } else { 0 },
+                    BinOp::LessThan => if l < r { 1 } else { 0 },
+                    BinOp::GreaterThan => if l > r { 1 } else { 0 },
+                    BinOp::And => if l != 0 && r != 0 { 1 } else { 0 },
+                    BinOp::Or => if l != 0 || r != 0 { 1 } else { 0 },
+                }
+            }
+            Expr::UnaryOp { op, expr } => {
+                let val = self.eval_expr(*expr);
+                match op {
+                    UnOp::Not => if val == 0 { 1 } else { 0 },
                 }
             }
             Expr::FunctionCall { name, args } => {
-                // Clone the function to avoid borrow conflicts
                 let function = self
                     .functions
                     .get(&name)
                     .expect(&format!("Function '{}' not found", name))
                     .clone();
 
-                // Evaluate arguments
                 let arg_values: Vec<i32> =
                     args.into_iter().map(|arg| self.eval_expr(arg)).collect();
 
@@ -193,20 +143,15 @@ impl Vm {
                     );
                 }
 
-                // Save the current variable scope
                 let old_vars = self.variables.clone();
                 self.variables.clear();
 
-                // Set up function arguments in the new scope
                 for (param, val) in function.params.iter().zip(arg_values.into_iter()) {
                     self.variables.insert(param.clone(), val);
                 }
 
-                // Execute the function body
                 self.execute(function.body.clone());
                 let result = self.get_result();
-
-                // Restore the old variable scope
                 self.variables = old_vars;
 
                 result
@@ -214,6 +159,7 @@ impl Vm {
         }
     }
 }
+
 
 #[cfg(test)]
 mod tests {

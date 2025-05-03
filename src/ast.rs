@@ -2,25 +2,29 @@
 /// This module defines the structure of the AST nodes
 
 #[derive(Debug, Clone)]
-/// represents the different types of expressions in the language.
+/// Represents the different types of expressions in the language.
 pub enum Expr {
     Number(i32),
     Variable(String),
+    Boolean(bool),
+    Char(char),
     BinaryOp {
         op: BinOp,        // Binary operator
         left: Box<Expr>,  // Left operand
         right: Box<Expr>, // Right operand
     },
-    Boolean(bool),
-    Char(char),
+    UnaryOp {
+        op: UnOp,         // Unary operator
+        expr: Box<Expr>,  // Operand
+    },
     FunctionCall {
-        // added function call
         name: String,    // Name of the function
         args: Vec<Expr>, // Arguments for the function call
     },
 }
-//// Represents the different binary operators in the language.
-/// This includes arithmetic, comparison, and logical operators.
+
+/// Represents the different binary operators in the language.
+/// Includes arithmetic, comparison, and logical operators.
 #[derive(Debug, Clone)]
 pub enum BinOp {
     Add,
@@ -31,34 +35,43 @@ pub enum BinOp {
     NotEqual,    // !=
     LessThan,    // <
     GreaterThan, // >
+    And,         // &&
+    Or,          // ||
 }
+
+/// Represents the different unary operators in the language.
+#[derive(Debug, Clone)]
+pub enum UnOp {
+    Not, // !
+}
+
 /// Represents the different types of statements in the language.
-/// This includes control flow statements, variable declarations, and function definitions.
+/// This includes control flow, variable declarations, and functions.
 #[derive(Debug, Clone)]
 pub enum Stmt {
     Return(Expr),
     If {
-        condition: Expr,                // Condition for the if statement
-        then_branch: Box<Stmt>,         // Branch to execute if condition is true
-        else_branch: Option<Box<Stmt>>, // Optional else branch
+        condition: Expr,
+        then_branch: Box<Stmt>,
+        else_branch: Option<Box<Stmt>>,
     },
     While {
-        condition: Expr, // Condition for the while loop
-        body: Box<Stmt>, // Body of the loop
+        condition: Expr,
+        body: Box<Stmt>,
     },
     Let {
-        name: String, // Name of the variable
-        value: Expr,  // Initial value of the variable
+        name: String,
+        value: Expr,
     },
     Assign {
-        name: String, // Name of the variable
-        value: Expr,  // Value to assign to the variable
+        name: String,
+        value: Expr,
     },
     Block(Vec<Stmt>),
     Function {
-        //added function declaration
-        name: String,        // Name of the function
-        params: Vec<String>, // Parameters of the function
-        body: Box<Stmt>,     // Body of the function
+        name: String,
+        params: Vec<String>,
+        body: Box<Stmt>,
     },
+    Print(Expr), // ✅ NEW: print statement
 }
