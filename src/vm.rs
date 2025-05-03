@@ -49,8 +49,15 @@ impl Vm {
 
             Stmt::Let { name, value } => {
                 let val = self.eval_expr(value);
-                self.variables.last_mut().unwrap().insert(name, val);
+                if self.variables.len() == 1 {
+                    // Global scope
+                    self.variables[0].insert(name, val);
+                } else {
+                    // Local scope
+                    self.variables.last_mut().unwrap().insert(name, val);
+                }
             }
+            
 
             Stmt::Assign { name, value } => {
                 let val = self.eval_expr(value);
@@ -454,6 +461,21 @@ fn test_implicit_let() {
     ";
     assert_eq!(run(code), 10);
 }
+
+#[test]
+fn test_global_variable_usage() {
+    let code = "
+        let x = 42;
+
+        fn show() {
+            return x;
+        }
+
+        return show();
+    ";
+    assert_eq!(run(code), 42);
+}
+
 
     
 }

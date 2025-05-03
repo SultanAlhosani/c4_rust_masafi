@@ -1,13 +1,17 @@
-enum { RED = 1, GREEN, BLUE = 5, YELLOW };
+// Global variable declarations
+let a = 10;
+let b = 20;
 
-let color1 = RED;
-let color2 = GREEN;
-let color3 = BLUE;
-let color4 = YELLOW;
+fn sum_globals() {
+    return a + b;
+}
 
-print(color1); // should print 1
-print(color2); // should print 2
-print(color3); // should print 5
-print(color4); // should print 6
+fn main() {
+    let result = sum_globals();
+    print(result);   // Should print 30
+    return result;
+}
 
-return color1 + color2 + color3 + color4; // 1 + 2 + 5 + 6 = 14
+return main();   // ✅ passes the return value of main() to the VM
+
+
