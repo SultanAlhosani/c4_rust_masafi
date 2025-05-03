@@ -35,7 +35,7 @@ pub enum Token {
     Not,
     Print,
     Enum,
-    StringLiteral(String), // ✅ New
+    StringLiteral(String),
 }
 
 pub struct Lexer {

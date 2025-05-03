@@ -30,5 +30,10 @@ fn main() {
     }
 
     // Print the final result of the program.
-    println!("Program finished. Final result = {}", vm.get_result());
+    if let Some(s) = vm.get_result_str() {
+        println!("Program finished. Final result = \"{}\"", s);
+    } else {
+        println!("Program finished. Final result = {}", vm.get_result());
+    }
+    
 }

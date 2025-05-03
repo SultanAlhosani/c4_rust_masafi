@@ -8,25 +8,24 @@ pub struct Function {
     pub body: Stmt,
 }
 
-pub struct Vm {
-    pub last_result: i32,
-    pub variables: Vec<HashMap<String, i32>>,
-    pub functions: HashMap<String, Function>,
-    pub constants: HashMap<String, i32>,
-    pub should_return: bool,
-}
-
 #[derive(Debug, Clone)]
 pub enum Value {
     Int(i32),
     Str(String),
 }
 
+pub struct Vm {
+    pub last_result: Value,
+    pub variables: Vec<HashMap<String, Value>>,
+    pub functions: HashMap<String, Function>,
+    pub constants: HashMap<String, i32>,
+    pub should_return: bool,
+}
 
 impl Vm {
     pub fn new() -> Self {
         Self {
-            last_result: 0,
+            last_result: Value::Int(0),
             variables: vec![HashMap::new()],
             functions: HashMap::new(),
             constants: HashMap::new(),
@@ -34,14 +33,25 @@ impl Vm {
         }
     }
 
-    pub fn set_result(&mut self, value: i32) {
+    pub fn set_result(&mut self, value: Value) {
         self.last_result = value;
         self.should_return = true;
     }
 
     pub fn get_result(&self) -> i32 {
-        self.last_result
+        match &self.last_result {
+            Value::Int(i) => *i,
+            Value::Str(_) => 0,
+        }
     }
+
+    pub fn get_result_str(&self) -> Option<&str> {
+        match &self.last_result {
+            Value::Str(s) => Some(s),
+            _ => None,
+        }
+    }
+    
 
     pub fn execute(&mut self, stmt: Stmt) {
         if self.should_return {
@@ -55,11 +65,7 @@ impl Vm {
             }
             Stmt::Let { name, value } => {
                 let val = self.eval_expr(value);
-                if self.variables.len() == 1 {
-                    self.variables[0].insert(name, val);
-                } else {
-                    self.variables.last_mut().unwrap().insert(name, val);
-                }
+                self.variables.last_mut().unwrap().insert(name, val);
             }
             Stmt::Assign { name, value } => {
                 let val = self.eval_expr(value);
@@ -72,14 +78,14 @@ impl Vm {
                 self.variables.last_mut().unwrap().insert(name, val);
             }
             Stmt::If { condition, then_branch, else_branch } => {
-                if self.eval_expr(condition) != 0 {
+                if self.eval_as_bool(condition) {
                     self.execute(*then_branch);
                 } else if let Some(else_stmt) = else_branch {
                     self.execute(*else_stmt);
                 }
             }
             Stmt::While { condition, body } => {
-                while self.eval_expr(condition.clone()) != 0 {
+                while self.eval_as_bool(condition.clone()) {
                     self.execute(*body.clone());
                     if self.should_return {
                         break;
@@ -87,22 +93,32 @@ impl Vm {
                 }
             }
             Stmt::Block(stmts) => {
-                self.variables.push(HashMap::new());
+                let is_single_scope = stmts.iter().all(|s| matches!(s, Stmt::Let { .. }));
+                
+                if !is_single_scope {
+                    self.variables.push(HashMap::new());
+                }
+            
                 for stmt in stmts {
                     self.execute(stmt);
                     if self.should_return {
                         break;
                     }
                 }
-                self.variables.pop();
+            
+                if !is_single_scope {
+                    self.variables.pop(); // only pop if you pushed
+                }
             }
+            
             Stmt::Function { name, params, body } => {
                 self.functions.insert(name.clone(), Function { name, params, body: *body });
             }
             Stmt::Print(expr) => {
-                match &expr {
-                    Expr::StringLiteral(s) => println!("{}", s),
-                    _ => println!("{}", self.eval_expr(expr)),
+                let val = self.eval_expr(expr);
+                match val {
+                    Value::Int(i) => println!("{}", i),
+                    Value::Str(s) => println!("{}", s),
                 }
             }
             Stmt::ExprStmt(expr) => {
@@ -111,28 +127,35 @@ impl Vm {
         }
     }
 
-    fn eval_expr(&mut self, expr: Expr) -> i32 {
+    fn eval_as_bool(&mut self, expr: Expr) -> bool {
+        match self.eval_expr(expr) {
+            Value::Int(i) => i != 0,
+            Value::Str(_) => true,
+        }
+    }
+
+    fn eval_expr(&mut self, expr: Expr) -> Value {
         match expr {
-            Expr::Number(n) => n,
-            Expr::Boolean(b) => if b { 1 } else { 0 },
-            Expr::Char(c) => c as i32,
-            Expr::StringLiteral(_) => 0,
+            Expr::Number(n) => Value::Int(n),
+            Expr::Boolean(b) => Value::Int(if b { 1 } else { 0 }),
+            Expr::Char(c) => Value::Int(c as i32),
+            Expr::StringLiteral(s) => Value::Str(s),
             Expr::Variable(name) => {
                 for scope in self.variables.iter().rev() {
                     if let Some(val) = scope.get(&name) {
-                        return *val;
+                        return val.clone();
                     }
                 }
-                if let Some(val) = self.constants.get(&name) {
-                    return *val;
+                if let Some(i) = self.constants.get(&name) {
+                    return Value::Int(*i);
                 }
                 panic!("Variable '{}' not found", name);
             }
             Expr::EnumValue(enum_name, variant_name) => {
                 let key = format!("{}::{}", enum_name, variant_name);
-                *self.constants.get(&key).unwrap_or_else(|| {
+                Value::Int(*self.constants.get(&key).unwrap_or_else(|| {
                     panic!("Enum variant '{}' not found", key)
-                })
+                }))
             }
             Expr::BinaryOp { op, left, right } => {
                 if op == BinOp::Assign {
@@ -140,31 +163,43 @@ impl Vm {
                 }
                 let l = self.eval_expr(*left);
                 let r = self.eval_expr(*right);
-                match op {
-                    BinOp::Add => l + r,
-                    BinOp::Sub => l - r,
-                    BinOp::Mul => l * r,
-                    BinOp::Div => {
-                        if r == 0 {
-                            panic!("Division by zero");
+                match (l, r) {
+                    (Value::Int(li), Value::Int(ri)) => match op {
+                        BinOp::Add => Value::Int(li + ri),
+                        BinOp::Sub => Value::Int(li - ri),
+                        BinOp::Mul => Value::Int(li * ri),
+                        BinOp::Div => {
+                            if ri == 0 {
+                                panic!("Division by zero");
+                            }
+                            Value::Int(li / ri)
                         }
-                        l / r
-                    }
-                    BinOp::Equal => (l == r) as i32,
-                    BinOp::NotEqual => (l != r) as i32,
-                    BinOp::LessThan => (l < r) as i32,
-                    BinOp::GreaterThan => (l > r) as i32,
-                    BinOp::LessEqual => (l <= r) as i32,
-                    BinOp::GreaterEqual => (l >= r) as i32,
-                    BinOp::And => if l != 0 && r != 0 { 1 } else { 0 },
-                    BinOp::Or => if l != 0 || r != 0 { 1 } else { 0 },
-                    _ => unreachable!(),
+                        BinOp::Equal => Value::Int((li == ri) as i32),
+                        BinOp::NotEqual => Value::Int((li != ri) as i32),
+                        BinOp::LessThan => Value::Int((li < ri) as i32),
+                        BinOp::GreaterThan => Value::Int((li > ri) as i32),
+                        BinOp::LessEqual => Value::Int((li <= ri) as i32),
+                        BinOp::GreaterEqual => Value::Int((li >= ri) as i32),
+                        BinOp::And => Value::Int((li != 0 && ri != 0) as i32),
+                        BinOp::Or => Value::Int((li != 0 || ri != 0) as i32),
+                        _ => unreachable!(),
+                    },
+                    (Value::Str(ls), Value::Str(rs)) => match op {
+                        BinOp::Add => Value::Str(ls + &rs),
+                        BinOp::Equal => Value::Int((ls == rs) as i32),
+                        BinOp::NotEqual => Value::Int((ls != rs) as i32),
+                        _ => panic!("Unsupported string operation: {:?}", op),
+                    },
+                    _ => panic!("Mismatched types for operation"),
                 }
             }
             Expr::UnaryOp { op, expr } => {
                 let val = self.eval_expr(*expr);
                 match op {
-                    UnOp::Not => if val == 0 { 1 } else { 0 },
+                    UnOp::Not => match val {
+                        Value::Int(i) => Value::Int(if i == 0 { 1 } else { 0 }),
+                        Value::Str(_) => Value::Int(0),
+                    },
                 }
             }
             Expr::FunctionCall { name, args } => {
@@ -172,8 +207,7 @@ impl Vm {
                     panic!("Function '{}' not found", name)
                 }).clone();
 
-                let arg_values: Vec<i32> =
-                    args.into_iter().map(|arg| self.eval_expr(arg)).collect();
+                let arg_values: Vec<Value> = args.into_iter().map(|arg| self.eval_expr(arg)).collect();
 
                 if arg_values.len() != function.params.len() {
                     panic!(
@@ -189,14 +223,14 @@ impl Vm {
                     self.variables.last_mut().unwrap().insert(param.clone(), val);
                 }
 
-                let prev_result = self.last_result;
+                let prev_result = self.last_result.clone();
                 let prev_should_return = self.should_return;
-                self.last_result = 0;
+                self.last_result = Value::Int(0);
                 self.should_return = false;
 
                 self.execute(function.body.clone());
 
-                let result = self.last_result;
+                let result = self.last_result.clone();
                 self.variables.pop();
                 self.last_result = prev_result;
                 self.should_return = prev_should_return;
@@ -205,24 +239,22 @@ impl Vm {
         }
     }
 
-    fn handle_assign(&mut self, left: Expr, right: Expr) -> i32 {
+    fn handle_assign(&mut self, left: Expr, right: Expr) -> Value {
         if let Expr::Variable(name) = left {
             let val = self.eval_expr(right);
             for scope in self.variables.iter_mut().rev() {
                 if scope.contains_key(&name) {
-                    scope.insert(name, val);
+                    scope.insert(name, val.clone());
                     return val;
                 }
             }
-            self.variables.last_mut().unwrap().insert(name, val);
+            self.variables.last_mut().unwrap().insert(name, val.clone());
             val
         } else {
             panic!("Left-hand side of assignment must be a variable");
         }
     }
 }
-
-
 
 
 #[cfg(test)]
@@ -477,6 +509,86 @@ fn test_global_variable_usage() {
     assert_eq!(run(code), 42);
 }
 
+#[test]
+fn test_string_return_and_concatenation() {
+    let code = r#"
+        let hello = "Hello, ";
+        let world = "World!";
+        let message = hello + world;
+        print(message);
+        return message;
+    "#;
+
+    let lexer = Lexer::new(code);
+    let mut vm = Vm::new();
+    let mut parser = Parser::new(lexer, &mut vm);
+    let stmts = parser.parse();
+    for stmt in stmts {
+        vm.execute(stmt);
+    }
+
+    match vm.last_result {
+        Value::Str(ref s) => assert_eq!(s, "Hello, World!"),
+        _ => panic!("Expected string result"),
+    }
+}
+
+#[test]
+fn test_global_variable_access_in_function() {
+    let code = r#"
+        let x = 123;
+
+        fn get() {
+            return x;
+        }
+
+        return get();
+    "#;
+
+    assert_eq!(run(code), 123);
+}
+
+
+#[test]
+fn test_global_variable_modification_in_function() {
+    let code = r#"
+        let x = 10;
+
+        fn modify() {
+            x = x + 5;
+        }
+
+        modify();
+        return x;
+    "#;
+
+    assert_eq!(run(code), 15);
+}
+
+#[test]
+fn test_global_variable_shadowing() {
+    let code = r#"
+        let x = 7;
+
+        {
+            let x = 42;
+            print(x); // should print 42
+        }
+
+        return x; // should return 7
+    "#;
+
+    assert_eq!(run(code), 7);
+}
+
+#[test]
+fn test_comma_separated_let_declaration() {
+    let code = "
+        let x = 1, y = 2, z = x + y;
+        return z;
+    ";
+    assert_eq!(run(code), 3);
+}
 
     
 }

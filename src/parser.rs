@@ -42,12 +42,32 @@ impl<'a> Parser<'a> {
             }
             Token::Let => {
                 self.next();
-                let name = self.expect_identifier("Expected identifier after 'let'", line, col);
-                self.expect_token(Token::Assign, "Expected '=' after identifier", line, col);
-                let value = self.expression();
+            
+                let mut decls = Vec::new();
+            
+                loop {
+                    let name = self.expect_identifier("Expected identifier after 'let'", line, col);
+                    self.expect_token(Token::Assign, "Expected '=' after identifier", line, col);
+                    let value = self.expression();
+                    decls.push(Stmt::Let { name, value });
+            
+                    if self.current_token == Token::Comma {
+                        self.next(); // keep going
+                    } else {
+                        break; // done
+                    }
+                }
+            
                 self.consume_semicolon();
-                Stmt::Let { name, value }
+            
+                if decls.len() == 1 {
+                    decls.pop().unwrap()
+                } else {
+                    Stmt::Block(decls)
+                }
             }
+            
+            
             Token::Print => {
                 self.next();
                 self.expect_token(Token::OpenParen, "Expected '(' after 'print'", line, col);
@@ -285,7 +305,7 @@ impl<'a> Parser<'a> {
                 let str_val = s.clone();
                 self.next();
                 Expr::StringLiteral(str_val)
-            }
+            }   
             Token::Identifier(name) => {
                 let var_name = name.clone();
                 self.next();
