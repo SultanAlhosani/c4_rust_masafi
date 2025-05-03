@@ -21,6 +21,8 @@ pub enum Token {
     NotEqual,
     LessThan,
     GreaterThan,
+    LessEqual,      // <=
+    GreaterEqual,   // >=
     Eof,
     Unknown(char),
     True,
@@ -97,8 +99,25 @@ impl Lexer {
                         Token::Not
                     }
                 }
-                '<' => { self.advance(); Token::LessThan }
-                '>' => { self.advance(); Token::GreaterThan }
+                '<' => {
+                    self.advance();
+                    if self.match_char('=') {
+                        self.advance();
+                        Token::LessEqual
+                    } else {
+                        Token::LessThan
+                    }
+                }
+                '>' => {
+                    self.advance();
+                    if self.match_char('=') {
+                        self.advance();
+                        Token::GreaterEqual
+                    } else {
+                        Token::GreaterThan
+                    }
+                }
+
                 ',' => { self.advance(); Token::Comma }
                 '&' => {
                     self.advance();

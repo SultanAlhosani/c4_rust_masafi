@@ -114,6 +114,8 @@ impl Vm {
                     BinOp::NotEqual => if l != r { 1 } else { 0 },
                     BinOp::LessThan => if l < r { 1 } else { 0 },
                     BinOp::GreaterThan => if l > r { 1 } else { 0 },
+                    BinOp::LessEqual => if l <= r { 1 } else { 0 },        // ✅ NEW
+                    BinOp::GreaterEqual => if l >= r { 1 } else { 0 },     // ✅ NEW
                     BinOp::And => if l != 0 && r != 0 { 1 } else { 0 },
                     BinOp::Or => if l != 0 || r != 0 { 1 } else { 0 },
                 }
@@ -384,4 +386,5 @@ mod tests {
         ";
         assert_eq!(run(code), 2);
     }
+    
 }

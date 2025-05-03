@@ -35,6 +35,8 @@ pub enum BinOp {
     NotEqual,    // !=
     LessThan,    // <
     GreaterThan, // >
+    LessEqual,      // ✅ add this
+    GreaterEqual,   // ✅ and this
     And,         // &&
     Or,          // ||
 }

@@ -188,20 +188,35 @@ impl<'a> Parser<'a> {
 
     fn parse_cmp(&mut self) -> Expr {
         let mut lhs = self.parse_add_sub();
-        while matches!(self.current_token, Token::Equal | Token::NotEqual | Token::LessThan | Token::GreaterThan) {
+        while matches!(
+            self.current_token,
+            Token::Equal
+                | Token::NotEqual
+                | Token::LessThan
+                | Token::GreaterThan
+                | Token::LessEqual
+                | Token::GreaterEqual
+        ) {
             let op = match self.current_token {
                 Token::Equal => BinOp::Equal,
                 Token::NotEqual => BinOp::NotEqual,
                 Token::LessThan => BinOp::LessThan,
                 Token::GreaterThan => BinOp::GreaterThan,
+                Token::LessEqual => BinOp::LessEqual,
+                Token::GreaterEqual => BinOp::GreaterEqual,
                 _ => unreachable!(),
             };
             self.next();
             let rhs = self.parse_add_sub();
-            lhs = Expr::BinaryOp { op, left: Box::new(lhs), right: Box::new(rhs) };
+            lhs = Expr::BinaryOp {
+                op,
+                left: Box::new(lhs),
+                right: Box::new(rhs),
+            };
         }
         lhs
     }
+    
 
     fn parse_add_sub(&mut self) -> Expr {
         let mut lhs = self.parse_mul_div();
