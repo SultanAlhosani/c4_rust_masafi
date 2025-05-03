@@ -43,11 +43,7 @@ impl Vm {
             }
             Stmt::Assign { name, value } => {
                 let val = self.eval_expr(value);
-                if self.variables.contains_key(&name) {
-                    self.variables.insert(name, val);
-                } else {
-                    panic!("Variable '{}' not declared", name);
-                }
+                self.variables.insert(name, val);
             }
             Stmt::If {
                 condition,
@@ -89,35 +85,39 @@ impl Vm {
     fn eval_expr(&mut self, expr: Expr) -> i32 {
         match expr {
             Expr::Number(n) => n,
-            Expr::Boolean(b) => {
-                if b { 1 } else { 0 }
-            }
+            Expr::Boolean(b) => if b { 1 } else { 0 },
             Expr::Char(c) => c as i32,
             Expr::Variable(name) => *self
                 .variables
                 .get(&name)
                 .expect(&format!("Variable '{}' not found", name)),
             Expr::BinaryOp { op, left, right } => {
-                let l = self.eval_expr(*left);
-                let r = self.eval_expr(*right);
                 match op {
-                    BinOp::Add => l + r,
-                    BinOp::Sub => l - r,
-                    BinOp::Mul => l * r,
-                    BinOp::Div => {
-                        if r == 0 {
-                            panic!("Division by zero");
+                    BinOp::Assign => self.handle_assign(*left, *right),
+                    _ => {
+                        let l = self.eval_expr(*left);
+                        let r = self.eval_expr(*right);
+                        match op {
+                            BinOp::Add => l + r,
+                            BinOp::Sub => l - r,
+                            BinOp::Mul => l * r,
+                            BinOp::Div => {
+                                if r == 0 {
+                                    panic!("Division by zero");
+                                }
+                                l / r
+                            }
+                            BinOp::Equal => if l == r { 1 } else { 0 },
+                            BinOp::NotEqual => if l != r { 1 } else { 0 },
+                            BinOp::LessThan => if l < r { 1 } else { 0 },
+                            BinOp::GreaterThan => if l > r { 1 } else { 0 },
+                            BinOp::LessEqual => if l <= r { 1 } else { 0 },
+                            BinOp::GreaterEqual => if l >= r { 1 } else { 0 },
+                            BinOp::And => if l != 0 && r != 0 { 1 } else { 0 },
+                            BinOp::Or => if l != 0 || r != 0 { 1 } else { 0 },
+                            _ => unreachable!(),
                         }
-                        l / r
                     }
-                    BinOp::Equal => if l == r { 1 } else { 0 },
-                    BinOp::NotEqual => if l != r { 1 } else { 0 },
-                    BinOp::LessThan => if l < r { 1 } else { 0 },
-                    BinOp::GreaterThan => if l > r { 1 } else { 0 },
-                    BinOp::LessEqual => if l <= r { 1 } else { 0 },        // ✅ NEW
-                    BinOp::GreaterEqual => if l >= r { 1 } else { 0 },     // ✅ NEW
-                    BinOp::And => if l != 0 && r != 0 { 1 } else { 0 },
-                    BinOp::Or => if l != 0 || r != 0 { 1 } else { 0 },
                 }
             }
             Expr::UnaryOp { op, expr } => {
@@ -160,7 +160,18 @@ impl Vm {
             }
         }
     }
+
+    fn handle_assign(&mut self, left: Expr, right: Expr) -> i32 {
+        if let Expr::Variable(name) = left {
+            let val = self.eval_expr(right);
+            self.variables.insert(name, val);
+            val
+        } else {
+            panic!("Left-hand side of assignment must be a variable");
+        }
+    }
 }
+
 
 
 #[cfg(test)]
@@ -386,5 +397,16 @@ mod tests {
         ";
         assert_eq!(run(code), 2);
     }
+
+    #[test]
+fn test_implicit_let() {
+    let code = "
+        x = 7
+        y = x + 3
+        return y
+    ";
+    assert_eq!(run(code), 10);
+}
+
     
 }

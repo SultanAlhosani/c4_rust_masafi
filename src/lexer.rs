@@ -201,8 +201,9 @@ impl Lexer {
     }
 
     fn match_char(&self, expected: char) -> bool {
-        self.input.get(self.pos) == Some(&expected)
+        self.input.get(self.pos + 1) == Some(&expected)
     }
+    
 
     fn advance(&mut self) {
         if let Some(ch) = self.input.get(self.pos) {

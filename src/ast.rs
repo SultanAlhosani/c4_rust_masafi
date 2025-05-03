@@ -39,6 +39,7 @@ pub enum BinOp {
     GreaterEqual,   // ✅ and this
     And,         // &&
     Or,          // ||
+    Assign, // =
 }
 
 /// Represents the different unary operators in the language.

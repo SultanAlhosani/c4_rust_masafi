@@ -87,9 +87,11 @@ impl<'a> Parser<'a> {
                 self.next();
                 let value = self.expression();
                 if self.current_token == Token::Semicolon {
-                    self.next();
+                    self.next(); // Optional semicolon
                 }
+            
                 Stmt::Assign { name: var_name, value }
+
             }
             Token::If => {
                 self.next();
@@ -163,8 +165,29 @@ impl<'a> Parser<'a> {
     }
 
     fn expression(&mut self) -> Expr {
-        self.parse_logic_or()
+        self.parse_assignment()
     }
+    
+    
+    
+    fn parse_assignment(&mut self) -> Expr {
+        let mut expr = self.parse_logic_or();
+    
+        if self.current_token == Token::Assign {
+            self.next(); // consume '='
+            let value = self.parse_assignment();
+            expr = Expr::BinaryOp {
+                op: BinOp::Assign,
+                left: Box::new(expr),
+                right: Box::new(value),
+            };
+        }
+    
+        expr
+    }
+    
+    
+    
 
     fn parse_logic_or(&mut self) -> Expr {
         let mut lhs = self.parse_logic_and();

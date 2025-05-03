@@ -1,16 +1,10 @@
 let a = 5;
 let b = 10;
+a = a + b;
+print(a);  
 
-if (a <= b) {
-    print(1);
-} else {
-    print(0);
-}
+let x = 0;
+x = x + 2 * a;
+print(x);   
 
-if (b >= a) {
-    print(2);
-} else {
-    print(3);
-}
-
-return 0;
+return x;
