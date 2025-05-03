@@ -1,17 +1,6 @@
-// Global variable declarations
-let a = 10;
-let b = 20;
-
-fn sum_globals() {
-    return a + b;
+fn hello() {
+    print(123);
 }
 
-fn main() {
-    let result = sum_globals();
-    print(result);   // Should print 30
-    return result;
-}
-
-return main();   // ✅ passes the return value of main() to the VM
-
-
+hello();      // ← expression statement
+return 0;

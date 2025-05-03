@@ -46,19 +46,16 @@ impl Vm {
                 let value = self.eval_expr(expr);
                 self.set_result(value);
             }
-
+        
             Stmt::Let { name, value } => {
                 let val = self.eval_expr(value);
                 if self.variables.len() == 1 {
-                    // Global scope
-                    self.variables[0].insert(name, val);
+                    self.variables[0].insert(name, val); // Global scope
                 } else {
-                    // Local scope
-                    self.variables.last_mut().unwrap().insert(name, val);
+                    self.variables.last_mut().unwrap().insert(name, val); // Local scope
                 }
             }
-            
-
+        
             Stmt::Assign { name, value } => {
                 let val = self.eval_expr(value);
                 for scope in self.variables.iter_mut().rev() {
@@ -67,9 +64,9 @@ impl Vm {
                         return;
                     }
                 }
-                self.variables.last_mut().unwrap().insert(name, val); // implicit let
+                self.variables.last_mut().unwrap().insert(name, val); // Implicit let
             }
-
+        
             Stmt::If { condition, then_branch, else_branch } => {
                 if self.eval_expr(condition) != 0 {
                     self.execute(*then_branch);
@@ -77,7 +74,7 @@ impl Vm {
                     self.execute(*else_stmt);
                 }
             }
-
+        
             Stmt::While { condition, body } => {
                 while self.eval_expr(condition.clone()) != 0 {
                     self.execute(*body.clone());
@@ -86,7 +83,7 @@ impl Vm {
                     }
                 }
             }
-
+        
             Stmt::Block(stmts) => {
                 self.variables.push(HashMap::new());
                 for stmt in stmts {
@@ -97,16 +94,22 @@ impl Vm {
                 }
                 self.variables.pop();
             }
-
+        
             Stmt::Function { name, params, body } => {
                 self.functions.insert(name.clone(), Function { name, params, body: *body });
             }
-
+        
             Stmt::Print(expr) => {
                 let value = self.eval_expr(expr);
                 println!("{}", value);
             }
+        
+            Stmt::ExprStmt(expr) => {
+                // ✅ NEW: support for expression-only statements like `foo();`
+                self.eval_expr(expr);
+            }
         }
+            
     }
 
     fn eval_expr(&mut self, expr: Expr) -> i32 {

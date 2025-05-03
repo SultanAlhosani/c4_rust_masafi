@@ -56,14 +56,6 @@ impl<'a> Parser<'a> {
                 self.consume_semicolon();
                 Stmt::Print(expr)
             }
-            Token::Identifier(name) => {
-                let var_name = name.clone();
-                self.next();
-                self.expect_token(Token::Assign, "Expected '=' after identifier", line, col);
-                let value = self.expression();
-                self.consume_semicolon();
-                Stmt::Assign { name: var_name, value }
-            }
             Token::If => {
                 self.next();
                 self.expect_token(Token::OpenParen, "Expected '(' after 'if'", line, col);
@@ -140,7 +132,11 @@ impl<'a> Parser<'a> {
                 self.consume_semicolon(); // allow semicolon after enum declaration
                 Stmt::Block(vec![])
             }            
-            _ => panic!("Unexpected token: {:?} at line {}, column {}", self.current_token, line, col),
+            _ => {
+                let expr = self.expression();
+                self.consume_semicolon();
+                Stmt::ExprStmt(expr) // ✅ NEW fallback case
+            }
         }
     }
 

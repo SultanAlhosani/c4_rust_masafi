@@ -79,5 +79,6 @@ pub enum Stmt {
         body: Box<Stmt>,
     },
     Print(Expr), // print statement
+    ExprStmt(Expr), 
 }
 
