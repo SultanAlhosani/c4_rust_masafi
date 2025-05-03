@@ -1,6 +1,40 @@
-fn hello() {
-    print(123);
+// Simple factorial with if, while, and function
+fn factorial(n) {
+    if (n == 0) {
+        return 1;
+    }
+    let result = 1;
+    while (n > 1) {
+        result = result * n;
+        n = n - 1;
+    }
+    return result;
 }
 
-hello();      // ← expression statement
+let x = 5;
+let f = factorial(x);
+
+print(f); // should print 120
+
+// Boolean logic
+let a = true;
+let b = false;
+if (a && !b) {
+    print(1);
+} else {
+    print(0);
+}
+
+// Character literal usage
+let ch = 'A';
+print(ch); // should print 65 (ASCII)
+
+// String literal (only parsed, not evaluated in VM)
+let message = "Hello, World!";
+
+// Implicit assignment
+y = 10;
+y = y + 2;
+print(y); // should print 12
+
 return 0;

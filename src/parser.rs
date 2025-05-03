@@ -255,12 +255,13 @@ impl<'a> Parser<'a> {
 
     fn parse_primary(&mut self) -> Expr {
         let (line, col) = self.lexer.get_position();
+    
         if self.current_token == Token::Not {
             self.next();
             let inner = self.parse_primary();
             return Expr::UnaryOp { op: UnOp::Not, expr: Box::new(inner) };
         }
-
+    
         match &self.current_token {
             Token::Num(n) => {
                 let val = *n;
@@ -280,6 +281,11 @@ impl<'a> Parser<'a> {
                 self.next();
                 Expr::Char(ch)
             }
+            Token::StringLiteral(s) => {
+                let str_val = s.clone();
+                self.next();
+                Expr::StringLiteral(str_val)
+            }
             Token::Identifier(name) => {
                 let var_name = name.clone();
                 self.next();
@@ -289,7 +295,7 @@ impl<'a> Parser<'a> {
                     while self.current_token != Token::CloseParen {
                         let arg = self.expression();
                         args.push(arg);
-
+    
                         if self.current_token == Token::Comma {
                             self.next();
                         } else if self.current_token != Token::CloseParen {
@@ -308,9 +314,13 @@ impl<'a> Parser<'a> {
                 self.expect_token(Token::CloseParen, "Expected ')' after expression", line, col);
                 expr
             }
-            _ => panic!("Unexpected token in expression at line {}, column {}: {:?}", line, col, self.current_token),
+            _ => panic!(
+                "Unexpected token in expression at line {}, column {}: {:?}",
+                line, col, self.current_token
+            ),
         }
     }
+    
 
     fn block(&mut self) -> Stmt {
         self.expect_token(Token::OpenBrace, "Expected '{' to start block", 0, 0);

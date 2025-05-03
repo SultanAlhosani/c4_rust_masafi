@@ -1,6 +1,7 @@
 /// Abstract Syntax Tree (AST) for a simple programming language.
 /// This module defines the structure of the AST nodes
 
+
 #[derive(Debug, Clone)]
 /// Represents the different types of expressions in the language.
 pub enum Expr {
@@ -8,6 +9,7 @@ pub enum Expr {
     Variable(String),
     Boolean(bool),
     Char(char),
+    StringLiteral(String), // ✅ NEW: string literal support
     BinaryOp {
         op: BinOp,        // Binary operator
         left: Box<Expr>,  // Left operand
@@ -21,8 +23,9 @@ pub enum Expr {
         name: String,    // Name of the function
         args: Vec<Expr>, // Arguments for the function call
     },
-    EnumValue(String, String), // ✅ NEW: Enum access like EnumName.Variant
+    EnumValue(String, String), // ✅ Enum access like EnumName.Variant
 }
+
 
 /// Represents the different binary operators in the language.
 /// Includes arithmetic, comparison, and logical operators.

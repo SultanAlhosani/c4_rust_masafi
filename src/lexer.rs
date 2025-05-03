@@ -35,6 +35,7 @@ pub enum Token {
     Not,
     Print,
     Enum,
+    StringLiteral(String), // ✅ New
 }
 
 pub struct Lexer {
@@ -59,6 +60,35 @@ impl Lexer {
 
         if let Some(ch) = self.current_char() {
             match ch {
+                '"' => {
+                    self.advance(); // skip opening quote
+                    let mut string = String::new();
+                    while let Some(c) = self.current_char() {
+                        if c == '"' {
+                            break;
+                        } else if c == '\\' {
+                            self.advance();
+                            if let Some(escaped) = self.current_char() {
+                                match escaped {
+                                    'n' => string.push('\n'),
+                                    't' => string.push('\t'),
+                                    '"' => string.push('"'),
+                                    '\\' => string.push('\\'),
+                                    _ => panic!("Unknown escape sequence \\{} at line {}, col {}", escaped, self.line, self.col),
+                                }
+                            }
+                        } else {
+                            string.push(c);
+                        }
+                        self.advance();
+                    }
+                    if self.current_char() != Some('"') {
+                        panic!("Unterminated string literal at line {}, col {}", self.line, self.col);
+                    }
+                    self.advance(); // skip closing quote
+                    Token::StringLiteral(string)
+                }
+
                 '\'' => {
                     self.advance();
                     let ch = self.current_char().unwrap_or_else(|| {
@@ -71,6 +101,7 @@ impl Lexer {
                     self.advance();
                     Token::Char(ch)
                 }
+
                 '0'..='9' => self.number(),
                 'a'..='z' | 'A'..='Z' | '_' => self.identifier_or_keyword(),
                 '+' => { self.advance(); Token::Add }
