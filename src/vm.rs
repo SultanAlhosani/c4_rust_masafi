@@ -64,10 +64,11 @@ impl Vm {
                 let value = self.eval_expr(expr);
                 self.set_result(value);
             }
-            Stmt::Let { name, value } => {
+            Stmt::Let { name, value, .. } => {
                 let val = self.eval_expr(value);
                 self.variables.last_mut().unwrap().insert(name, val);
             }
+            
             Stmt::Assign { name, value } => {
                 let val = self.eval_expr(value);
                 for scope in self.variables.iter_mut().rev() {
@@ -143,6 +144,25 @@ impl Vm {
             Expr::Boolean(b) => Value::Int(if b { 1 } else { 0 }),
             Expr::Char(c) => Value::Int(c as i32),
             Expr::StringLiteral(s) => Value::Str(s),
+            Expr::AddressOf(expr) => {
+                let val = self.eval_expr(*expr);
+                match val {
+                    Value::Int(i) => Value::Int(i * 1000), // Dummy address logic for now
+                    _ => panic!("Cannot take address of non-int"),
+                }
+            }
+            
+            Expr::Deref(expr) => {
+                let addr = self.eval_expr(*expr);
+                match addr {
+                    Value::Int(fake_ptr) => {
+                        // Simulate pointer dereference by reversing the dummy address logic
+                        Value::Int(fake_ptr / 1000)
+                    }
+                    _ => panic!("Invalid pointer dereference"),
+                }
+            }
+            
             Expr::SizeOf(t) => {
                 let size = match t {
                     Type::Int => 4,

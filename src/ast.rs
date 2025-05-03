@@ -23,9 +23,14 @@ pub enum Expr {
         args: Vec<Expr>,
     },
     EnumValue(String, String),
-    SizeOf(Type), // ✅ FIXED: represents sizeof(type)
+    SizeOf(Type),
     Cast(Type, Box<Expr>),
+
+    // ✅ NEW for pointers:
+    AddressOf(Box<Expr>),  // represents &expr
+    Deref(Box<Expr>),      // represents *expr
 }
+
 
 
 /// Represents the different binary operators in the language.
@@ -73,11 +78,11 @@ pub enum Type {
 /// This includes control flow, variable declarations, and functions.
 #[derive(Debug, Clone)]
 pub enum Stmt {
-    Let { name: String, value: Expr },
     Return(Expr),
     Print(Expr),
     ExprStmt(Expr),
     Block(Vec<Stmt>),
+    Let { name: String, value: Expr, var_type: Option<Type> },
     Assign {
         name: String,
         value: Expr,

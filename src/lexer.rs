@@ -36,8 +36,10 @@ pub enum Token {
     Print,
     Enum,
     StringLiteral(String),
-    Sizeof, // ✅ NEW
+    Sizeof,
     Colon,
+    AddressOf,
+    Deref,
 }
 
 pub struct Lexer {
@@ -108,7 +110,7 @@ impl Lexer {
                 'a'..='z' | 'A'..='Z' | '_' => self.identifier_or_keyword(),
                 '+' => { self.advance(); Token::Add }
                 '-' => { self.advance(); Token::Sub }
-                '*' => { self.advance(); Token::Mul }
+                '*' => { self.advance(); Token::Deref } // changed for pointer deref
                 '/' => {
                     self.advance();
                     if self.match_char('/') {
@@ -172,7 +174,7 @@ impl Lexer {
                         self.advance();
                         Token::And
                     } else {
-                        panic!("Expected '&&' but found '&' at line {}, col {}", self.line, self.col);
+                        Token::AddressOf
                     }
                 }
                 '|' => {
@@ -218,7 +220,7 @@ impl Lexer {
             }
         }
         let word: String = self.input[start..self.pos].iter().collect();
-        
+
         match word.as_str() {
             "return" => Token::Return,
             "if" => Token::If,
@@ -230,9 +232,8 @@ impl Lexer {
             "fn" => Token::Fn,
             "print" => Token::Print,
             "enum" => Token::Enum,
-            "sizeof" => Token::Sizeof, // ✅ NEW
-            "void" => Token::Identifier("void".to_string()), // ✅ add this line
-
+            "sizeof" => Token::Sizeof,
+            "void" => Token::Identifier("void".to_string()),
             _ => Token::Identifier(word),
         }
     }

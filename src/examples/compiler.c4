@@ -1,10 +1,8 @@
-void greet() {
-    print("Hello from C4!");
-}
-
 int main() {
-    greet();
-    return 0;
+    let x = 42;
+    let p = &x;      // p is a pointer to x
+    let y = *p;      // dereference p to get x's value
+    return y;        // should return 42
 }
 
-main();
+return main();
