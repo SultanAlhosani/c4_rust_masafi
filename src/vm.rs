@@ -310,4 +310,132 @@ mod tests {
         ";
         assert_eq!(run(code), 10);
     }
+
+    #[test]
+    fn test_nested_if_else() {
+        let code = "
+            let x = 10;
+            if (x > 5) {
+                if (x < 15) {
+                    return 1;
+                } else {
+                    return 2;
+                }
+            } else {
+                return 0;
+            }
+        ";
+        assert_eq!(run(code), 1);
+    }
+
+    #[test]
+    fn test_nested_while_loops() {
+        let code = "
+            let i = 0;
+            let sum = 0;
+            while (i < 3) {
+                let j = 0;
+                while (j < 2) {
+                    let sum = sum + i + j;
+                    let j = j + 1;
+                }
+                let i = i + 1;
+            }
+            return sum;
+        ";
+        assert_eq!(run(code), 9);
+    }
+
+    #[test]
+    fn test_function_multiple_params() {
+        let code = "
+            fn add(a, b, c) {
+                return a + b + c;
+            }
+            let result = add(1, 2, 3);
+            return result;
+        ";
+        assert_eq!(run(code), 6);
+    }
+
+    #[test]
+    fn test_variable_shadowing() {
+        let code = "
+            let x = 5;
+            {
+                let x = 10;
+                return x;
+            }
+            return x;
+        ";
+        assert_eq!(run(code), 10);
+    }
+
+    #[test]
+    fn test_boolean_logic() {
+        let code = "
+            let a = true;
+            let b = false;
+            if (a && !b) {
+                return 1;
+            } else {
+                return 0;
+            }
+        ";
+        assert_eq!(run(code), 1);
+    }
+
+    #[test]
+    #[should_panic(expected = "Division by zero")]
+    fn test_division_by_zero() {
+        let code = "return 10 / 0;";
+        run(code);
+    }
+
+    #[test]
+    #[should_panic(expected = "Variable 'y' not found")]
+    fn test_undefined_variable() {
+        let code = "return y;";
+        run(code);
+    }
+
+    #[test]
+    fn test_recursive_function_multiple_params() {
+        let code = "
+            fn power(base, exp) {
+                if (exp == 0) {
+                    return 1;
+                } else {
+                    return base * power(base, exp - 1);
+                }
+            }
+            let result = power(2, 3);
+            return result;
+        ";
+        assert_eq!(run(code), 8);
+    }
+
+    #[test]
+    fn test_empty_block() {
+        let code = "
+            {
+            }
+            return 42;
+        ";
+        assert_eq!(run(code), 42);
+    }
+
+    #[test]
+    fn test_function_overwriting() {
+        let code = "
+            fn test() {
+                return 1;
+            }
+            fn test() {
+                return 2;
+            }
+            return test();
+        ";
+        assert_eq!(run(code), 2);
+    }
 }

@@ -25,7 +25,7 @@ assertion `left == right` failed
   left: 20
  right: 14
 note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
-ned to fix precedence 
+precedence fixed  
 
 Replaced the old loop-based expression parser with a hierarchical recursive descent implementation to properly respect operator precedence.
 
@@ -41,3 +41,5 @@ Changes include:
 - Ensured parenthesis grouping takes highest precedence.
 
 All existing unit tests pass after this fix.
+
+boolean logic needs fixing 
