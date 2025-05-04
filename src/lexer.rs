@@ -44,6 +44,12 @@ pub enum Token {
     MinusMinus,   // --
     QuestionMark, 
     Mod, // %
+    BitAnd,   // &
+    BitOr,    // |
+    BitXor,   // ^
+    BitNot,   // ~
+    Shl,      // <<
+    Shr,      // >>
 }
 
 pub struct Lexer {
@@ -65,7 +71,7 @@ impl Lexer {
 
     pub fn next_token(&mut self) -> Token {
         self.skip_whitespace_and_comments();
-
+    
         if let Some(ch) = self.current_char() {
             match ch {
                 '"' => {
@@ -96,7 +102,7 @@ impl Lexer {
                     self.advance();
                     Token::StringLiteral(string)
                 }
-
+    
                 '\'' => {
                     self.advance();
                     let ch = self.current_char().unwrap_or_else(|| {
@@ -109,33 +115,35 @@ impl Lexer {
                     self.advance();
                     Token::Char(ch)
                 }
-
+    
                 '0'..='9' => self.number(),
                 'a'..='z' | 'A'..='Z' | '_' => self.identifier_or_keyword(),
+    
                 '+' => {
+                    self.advance();
+                    if self.current_char() == Some('+') {
                         self.advance();
-                        if self.current_char() == Some('+') {
-                            self.advance();
-                            Token::PlusPlus
-                        } else {
-                            Token::Add
-                        }
+                        Token::PlusPlus
+                    } else {
+                        Token::Add
                     }
-                    '-' => {
+                }
+    
+                '-' => {
+                    self.advance();
+                    if self.current_char() == Some('-') {
                         self.advance();
-                        if self.current_char() == Some('-') {
-                            self.advance();
-                            Token::MinusMinus
-                        } else {
-                            Token::Sub
-                        }
+                        Token::MinusMinus
+                    } else {
+                        Token::Sub
                     }
-
+                }
+    
                 '*' => {
-                self.advance();
-                Token::Mul  // ✅ Always return Mul
-            }// changed for pointer dereferencing
-
+                    self.advance();
+                    Token::Mul
+                }
+    
                 '/' => {
                     self.advance();
                     if self.match_char('/') {
@@ -151,11 +159,12 @@ impl Lexer {
                         Token::Div
                     }
                 }
-                '(' => { self.advance(); Token::OpenParen }
-                ')' => { self.advance(); Token::CloseParen }
-                '{' => { self.advance(); Token::OpenBrace }
-                '}' => { self.advance(); Token::CloseBrace }
-                ';' => { self.advance(); Token::Semicolon }
+    
+                '%' => {
+                    self.advance();
+                    Token::Mod
+                }
+    
                 '=' => {
                     self.advance();
                     if self.current_char() == Some('=') {
@@ -165,6 +174,7 @@ impl Lexer {
                         Token::Assign
                     }
                 }
+    
                 '!' => {
                     self.advance();
                     if self.current_char() == Some('=') {
@@ -174,50 +184,72 @@ impl Lexer {
                         Token::Not
                     }
                 }
+    
                 '<' => {
                     self.advance();
-                    if self.current_char() == Some('=') {
+                    if self.current_char() == Some('<') {
+                        self.advance();
+                        Token::Shl
+                    } else if self.current_char() == Some('=') {
                         self.advance();
                         Token::LessEqual
                     } else {
                         Token::LessThan
                     }
                 }
+    
                 '>' => {
                     self.advance();
-                    if self.current_char() == Some('=') {
+                    if self.current_char() == Some('>') {
+                        self.advance();
+                        Token::Shr
+                    } else if self.current_char() == Some('=') {
                         self.advance();
                         Token::GreaterEqual
                     } else {
                         Token::GreaterThan
                     }
                 }
-                ',' => { self.advance(); Token::Comma }
+    
                 '&' => {
                     self.advance();
                     if self.current_char() == Some('&') {
                         self.advance();
                         Token::And
                     } else {
-                        Token::AddressOf
+                        Token::BitAnd
                     }
                 }
+    
                 '|' => {
                     self.advance();
                     if self.current_char() == Some('|') {
                         self.advance();
                         Token::Or
                     } else {
-                        panic!("Expected '||' but found '|' at line {}, col {}", self.line, self.col);
+                        Token::BitOr
                     }
                 }
+    
+                '^' => {
+                    self.advance();
+                    Token::BitXor
+                }
+    
+                '~' => {
+                    self.advance();
+                    Token::BitNot
+                }
+    
+                '(' => { self.advance(); Token::OpenParen }
+                ')' => { self.advance(); Token::CloseParen }
+                '{' => { self.advance(); Token::OpenBrace }
+                '}' => { self.advance(); Token::CloseBrace }
+                ';' => { self.advance(); Token::Semicolon }
+                ',' => { self.advance(); Token::Comma }
                 ':' => { self.advance(); Token::Colon }
                 '?' => { self.advance(); Token::QuestionMark }
-                '%' => {
-                    self.advance();
-                    Token::Mod
-                }
-
+    
                 _ => {
                     self.advance();
                     Token::Unknown(ch)
@@ -227,6 +259,7 @@ impl Lexer {
             Token::Eof
         }
     }
+    
 
     fn number(&mut self) -> Token {
         let mut value = 0;

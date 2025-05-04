@@ -151,21 +151,17 @@ impl Vm {
                     self.eval_expr(*else_branch)
                 }
             }
-            
             Expr::AddressOf(expr) => {
                 let val = self.eval_expr(*expr);
                 match val {
-                    Value::Int(i) => Value::Int(i * 1000), // Dummy address logic for now
+                    Value::Int(i) => Value::Int(i * 1000),
                     _ => panic!("Cannot take address of non-int"),
                 }
             }
             Expr::Deref(expr) => {
                 let addr = self.eval_expr(*expr);
                 match addr {
-                    Value::Int(fake_ptr) => {
-                        // Simulate pointer dereference by reversing the dummy address logic
-                        Value::Int(fake_ptr / 1000)
-                    }
+                    Value::Int(fake_ptr) => Value::Int(fake_ptr / 1000),
                     _ => panic!("Invalid pointer dereference"),
                 }
             }
@@ -222,7 +218,7 @@ impl Vm {
                 } else {
                     panic!("-- requires a variable");
                 }
-            }            
+            }
             Expr::SizeOf(t) => {
                 let size = match t {
                     Type::Int => 4,
@@ -242,7 +238,6 @@ impl Vm {
                     (Type::Pointer(_), Value::Int(i)) => Value::Int(i),
                     (_, v) => panic!("Unsupported cast: {:?} to {:?}", v, to_type),
                 }
-                
             }
             Expr::Variable(name) => {
                 for scope in self.variables.iter().rev() {
@@ -284,7 +279,6 @@ impl Vm {
                             }
                             Value::Int(li % ri)
                         }
-                        
                         BinOp::Equal => Value::Int((li == ri) as i32),
                         BinOp::NotEqual => Value::Int((li != ri) as i32),
                         BinOp::LessThan => Value::Int((li < ri) as i32),
@@ -293,6 +287,11 @@ impl Vm {
                         BinOp::GreaterEqual => Value::Int((li >= ri) as i32),
                         BinOp::And => Value::Int((li != 0 && ri != 0) as i32),
                         BinOp::Or => Value::Int((li != 0 || ri != 0) as i32),
+                        BinOp::BitAnd => Value::Int(li & ri),
+                        BinOp::BitOr => Value::Int(li | ri),
+                        BinOp::BitXor => Value::Int(li ^ ri),
+                        BinOp::Shl => Value::Int(li << ri),
+                        BinOp::Shr => Value::Int(li >> ri),
                         _ => unreachable!(),
                     },
                     (Value::Str(ls), Value::Str(rs)) => match op {
@@ -317,9 +316,9 @@ impl Vm {
                 let function = self.functions.get(&name).unwrap_or_else(|| {
                     panic!("Function '{}' not found", name)
                 }).clone();
-
+    
                 let arg_values: Vec<Value> = args.into_iter().map(|arg| self.eval_expr(arg)).collect();
-
+    
                 if arg_values.len() != function.params.len() {
                     panic!(
                         "Function '{}' expected {} arguments, got {}",
@@ -328,19 +327,19 @@ impl Vm {
                         arg_values.len()
                     );
                 }
-
+    
                 self.variables.push(HashMap::new());
                 for (param, val) in function.params.iter().zip(arg_values) {
                     self.variables.last_mut().unwrap().insert(param.clone(), val);
                 }
-
+    
                 let prev_result = self.last_result.clone();
                 let prev_should_return = self.should_return;
                 self.last_result = Value::Int(0);
                 self.should_return = false;
-
+    
                 self.execute(function.body.clone());
-
+    
                 let result = self.last_result.clone();
                 self.variables.pop();
                 self.last_result = prev_result;
@@ -365,6 +364,8 @@ impl Vm {
             panic!("Left-hand side of assignment must be a variable");
         }
     }
+
+    
 }
 
 
@@ -833,6 +834,22 @@ fn test_modulus() {
     let code = "return 10 % 3;";
     assert_eq!(run(code), 1);
 }
+
+#[test]
+fn test_bitwise_operations() {
+    let code = "
+        let a = 6;      // 0b0110
+        let b = 3;      // 0b0011
+        let and = a & b;    // 0b0010 -> 2
+        let or  = a | b;    // 0b0111 -> 7
+        let xor = a ^ b;    // 0b0101 -> 5
+        let shl = a << 1;   // 0b1100 -> 12
+        let shr = a >> 1;   // 0b0011 -> 3
+        return and + or + xor + shl + shr; // 2 + 7 + 5 + 12 + 3 = 29
+    ";
+    assert_eq!(run(code), 29);
+}
+
 
     
 }

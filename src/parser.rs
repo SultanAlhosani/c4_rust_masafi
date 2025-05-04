@@ -239,17 +239,50 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_logic_and(&mut self) -> Expr {
-        let mut lhs = self.parse_cmp();
+        let mut lhs = self.parse_bit_or();
         while self.current_token == Token::And {
             self.next();
-            let rhs = self.parse_cmp();
+            let rhs = self.parse_bit_or();
             lhs = Expr::BinaryOp { op: BinOp::And, left: Box::new(lhs), right: Box::new(rhs) };
         }
         lhs
     }
 
+    fn parse_bit_or(&mut self) -> Expr {
+        let mut lhs = self.parse_bit_xor();
+        while self.current_token == Token::BitOr {
+            self.next();
+            let rhs = self.parse_bit_xor();
+            lhs = Expr::BinaryOp { op: BinOp::BitOr, left: Box::new(lhs), right: Box::new(rhs) };
+        }
+        lhs
+    }
+    
+    fn parse_bit_xor(&mut self) -> Expr {
+        let mut lhs = self.parse_bit_and();
+        while self.current_token == Token::BitXor {
+            self.next();
+            let rhs = self.parse_bit_and();
+            lhs = Expr::BinaryOp { op: BinOp::BitXor, left: Box::new(lhs), right: Box::new(rhs) };
+        }
+        lhs
+    }
+    
+    fn parse_bit_and(&mut self) -> Expr {
+        let mut lhs = self.parse_cmp();
+        while self.current_token == Token::BitAnd {
+            self.next();
+            let rhs = self.parse_cmp();
+            lhs = Expr::BinaryOp { op: BinOp::BitAnd, left: Box::new(lhs), right: Box::new(rhs) };
+        }
+        lhs
+    }
+    
+    
+
     fn parse_cmp(&mut self) -> Expr {
-        let mut lhs = self.parse_add_sub();
+        let mut lhs = self.parse_shift();
+
         while matches!(self.current_token, Token::Equal | Token::NotEqual | Token::LessThan | Token::GreaterThan | Token::LessEqual | Token::GreaterEqual) {
             let op = match self.current_token {
                 Token::Equal => BinOp::Equal,
@@ -266,6 +299,22 @@ impl<'a> Parser<'a> {
         }
         lhs
     }
+
+    fn parse_shift(&mut self) -> Expr {
+        let mut lhs = self.parse_add_sub();
+        while matches!(self.current_token, Token::Shl | Token::Shr) {
+            let op = match self.current_token {
+                Token::Shl => BinOp::Shl,
+                Token::Shr => BinOp::Shr,
+                _ => unreachable!(),
+            };
+            self.next();
+            let rhs = self.parse_add_sub();
+            lhs = Expr::BinaryOp { op, left: Box::new(lhs), right: Box::new(rhs) };
+        }
+        lhs
+    }
+    
 
     fn parse_add_sub(&mut self) -> Expr {
         let mut lhs = self.parse_mul_div();

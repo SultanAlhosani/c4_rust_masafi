@@ -13,6 +13,7 @@ pub enum Expr {
     PreDec(Box<Expr>),   // --x
     PostInc(Box<Expr>),  // x++
     PostDec(Box<Expr>),  // x--
+    
     Ternary {
         condition: Box<Expr>,
         then_branch: Box<Expr>,
@@ -60,7 +61,13 @@ pub enum BinOp {
     Or,          // ||
     Assign,      // =
     Mod, // %
+    BitAnd,
+    BitOr,
+    BitXor,
+    Shl,
+    Shr,
 }
+
 
 /// Represents the different unary operators in the language.
 #[derive(Debug, Clone)]
