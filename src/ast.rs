@@ -9,6 +9,15 @@ pub enum Expr {
     Boolean(bool),
     Char(char),
     StringLiteral(String),
+    PreInc(Box<Expr>),   // ++x
+    PreDec(Box<Expr>),   // --x
+    PostInc(Box<Expr>),  // x++
+    PostDec(Box<Expr>),  // x--
+    Ternary {
+        condition: Box<Expr>,
+        then_branch: Box<Expr>,
+        else_branch: Box<Expr>,
+    },
     BinaryOp {
         op: BinOp,
         left: Box<Expr>,

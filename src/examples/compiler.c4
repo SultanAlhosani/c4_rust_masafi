@@ -1,8 +1,2 @@
-int main() {
-    let x = 42;
-    let p = &x;      // p is a pointer to x
-    let y = *p;      // dereference p to get x's value
-    return y;        // should return 42
-}
-
-return main();
+enum { A = 10, B, C = 20, D };
+return A + B + C + D;

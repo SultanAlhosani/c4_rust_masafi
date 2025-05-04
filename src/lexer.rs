@@ -40,6 +40,9 @@ pub enum Token {
     Colon,
     AddressOf,
     Deref,
+    PlusPlus,     // ++
+    MinusMinus,   // --
+    QuestionMark, 
 }
 
 pub struct Lexer {
@@ -108,9 +111,30 @@ impl Lexer {
 
                 '0'..='9' => self.number(),
                 'a'..='z' | 'A'..='Z' | '_' => self.identifier_or_keyword(),
-                '+' => { self.advance(); Token::Add }
-                '-' => { self.advance(); Token::Sub }
-                '*' => { self.advance(); Token::Deref } // changed for pointer deref
+                '+' => {
+                        self.advance();
+                        if self.current_char() == Some('+') {
+                            self.advance();
+                            Token::PlusPlus
+                        } else {
+                            Token::Add
+                        }
+                    }
+                    '-' => {
+                        self.advance();
+                        if self.current_char() == Some('-') {
+                            self.advance();
+                            Token::MinusMinus
+                        } else {
+                            Token::Sub
+                        }
+                    }
+
+                '*' => {
+                self.advance();
+                Token::Mul  // ✅ Always return Mul
+            }// changed for pointer dereferencing
+
                 '/' => {
                     self.advance();
                     if self.match_char('/') {
@@ -187,6 +211,7 @@ impl Lexer {
                     }
                 }
                 ':' => { self.advance(); Token::Colon }
+                '?' => { self.advance(); Token::QuestionMark }
                 _ => {
                     self.advance();
                     Token::Unknown(ch)

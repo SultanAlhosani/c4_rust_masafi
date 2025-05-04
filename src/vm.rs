@@ -144,6 +144,14 @@ impl Vm {
             Expr::Boolean(b) => Value::Int(if b { 1 } else { 0 }),
             Expr::Char(c) => Value::Int(c as i32),
             Expr::StringLiteral(s) => Value::Str(s),
+            Expr::Ternary { condition, then_branch, else_branch } => {
+                if self.eval_as_bool(*condition) {
+                    self.eval_expr(*then_branch)
+                } else {
+                    self.eval_expr(*else_branch)
+                }
+            }
+            
             Expr::AddressOf(expr) => {
                 let val = self.eval_expr(*expr);
                 match val {
@@ -151,7 +159,6 @@ impl Vm {
                     _ => panic!("Cannot take address of non-int"),
                 }
             }
-            
             Expr::Deref(expr) => {
                 let addr = self.eval_expr(*expr);
                 match addr {
@@ -162,7 +169,60 @@ impl Vm {
                     _ => panic!("Invalid pointer dereference"),
                 }
             }
-            
+            Expr::PreInc(expr) => {
+                if let Expr::Variable(name) = *expr {
+                    for scope in self.variables.iter_mut().rev() {
+                        if let Some(Value::Int(ref mut val)) = scope.get_mut(&name) {
+                            *val += 1;
+                            return Value::Int(*val);
+                        }
+                    }
+                    panic!("Variable '{}' not found", name);
+                } else {
+                    panic!("++ requires a variable");
+                }
+            }
+            Expr::PreDec(expr) => {
+                if let Expr::Variable(name) = *expr {
+                    for scope in self.variables.iter_mut().rev() {
+                        if let Some(Value::Int(ref mut val)) = scope.get_mut(&name) {
+                            *val -= 1;
+                            return Value::Int(*val);
+                        }
+                    }
+                    panic!("Variable '{}' not found", name);
+                } else {
+                    panic!("-- requires a variable");
+                }
+            }
+            Expr::PostInc(expr) => {
+                if let Expr::Variable(name) = *expr {
+                    for scope in self.variables.iter_mut().rev() {
+                        if let Some(Value::Int(ref mut val)) = scope.get_mut(&name) {
+                            let original = *val;
+                            *val += 1;
+                            return Value::Int(original);
+                        }
+                    }
+                    panic!("Variable '{}' not found", name);
+                } else {
+                    panic!("++ requires a variable");
+                }
+            }
+            Expr::PostDec(expr) => {
+                if let Expr::Variable(name) = *expr {
+                    for scope in self.variables.iter_mut().rev() {
+                        if let Some(Value::Int(ref mut val)) = scope.get_mut(&name) {
+                            let original = *val;
+                            *val -= 1;
+                            return Value::Int(original);
+                        }
+                    }
+                    panic!("Variable '{}' not found", name);
+                } else {
+                    panic!("-- requires a variable");
+                }
+            }            
             Expr::SizeOf(t) => {
                 let size = match t {
                     Type::Int => 4,
@@ -720,6 +780,46 @@ fn test_print_from_main() {
     assert_eq!(vm.get_result(), 42);
 }
 
+#[test]
+fn test_pre_post_increment() {
+    let code = "
+        let x = 5;
+        let a = ++x;  // x = 6, a = 6
+        let b = x++;  // b = 6, x = 7
+        return a + b + x;  // returns 19
+    ";
+    assert_eq!(run(code), 19);
+}
+
+#[test]
+fn test_pre_post_decrement() {
+    let code = "
+        let x = 10;
+        let a = --x;  // x = 9, a = 9
+        let b = x--;  // b = 9, x = 8
+        return a + b + x;  // 9 + 9 + 8 = 26
+    ";
+    assert_eq!(run(code), 26);
+}
+
+#[test]
+fn test_enum_parsing_auto_increment() {
+    let code = "
+        enum { A = 10, B, C = 20, D };
+        return A + B + C + D;
+    ";
+
+    let lexer = Lexer::new(code);
+    let mut vm = Vm::new();
+    let mut parser = Parser::new(lexer, &mut vm);
+    let stmts = parser.parse();
+
+    for stmt in stmts {
+        vm.execute(stmt);
+    }
+
+    assert_eq!(vm.get_result(), 62);
+}
 
     
 }
