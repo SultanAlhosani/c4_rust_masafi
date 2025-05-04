@@ -59,6 +59,7 @@ pub enum BinOp {
     And,         // &&
     Or,          // ||
     Assign,      // =
+    Mod, // %
 }
 
 /// Represents the different unary operators in the language.

@@ -278,6 +278,13 @@ impl Vm {
                             }
                             Value::Int(li / ri)
                         }
+                        BinOp::Mod => {
+                            if ri == 0 {
+                                panic!("Modulo by zero");
+                            }
+                            Value::Int(li % ri)
+                        }
+                        
                         BinOp::Equal => Value::Int((li == ri) as i32),
                         BinOp::NotEqual => Value::Int((li != ri) as i32),
                         BinOp::LessThan => Value::Int((li < ri) as i32),
@@ -819,6 +826,12 @@ fn test_enum_parsing_auto_increment() {
     }
 
     assert_eq!(vm.get_result(), 62);
+}
+
+#[test]
+fn test_modulus() {
+    let code = "return 10 % 3;";
+    assert_eq!(run(code), 1);
 }
 
     

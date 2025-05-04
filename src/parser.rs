@@ -173,7 +173,6 @@ impl<'a> Parser<'a> {
                         self.next();
                     } else if self.current_token != Token::CloseBrace {
                         panic!("Expected ',' or '}}' in enum declaration");
-
                     }
                 }
                 self.expect_token(Token::CloseBrace, "Expected '}' after enum", line, col);
@@ -285,10 +284,11 @@ impl<'a> Parser<'a> {
 
     fn parse_mul_div(&mut self) -> Expr {
         let mut lhs = self.parse_unary();
-        while matches!(self.current_token, Token::Mul | Token::Div) {
+        while matches!(self.current_token, Token::Mul | Token::Div | Token::Mod) {
             let op = match self.current_token {
                 Token::Mul => BinOp::Mul,
                 Token::Div => BinOp::Div,
+                Token::Mod => BinOp::Mod,
                 _ => unreachable!(),
             };
             self.next();
@@ -297,6 +297,7 @@ impl<'a> Parser<'a> {
         }
         lhs
     }
+    
 
     fn parse_unary(&mut self) -> Expr {
         let expr = match self.current_token {

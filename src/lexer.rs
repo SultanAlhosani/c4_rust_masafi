@@ -43,6 +43,7 @@ pub enum Token {
     PlusPlus,     // ++
     MinusMinus,   // --
     QuestionMark, 
+    Mod, // %
 }
 
 pub struct Lexer {
@@ -212,6 +213,11 @@ impl Lexer {
                 }
                 ':' => { self.advance(); Token::Colon }
                 '?' => { self.advance(); Token::QuestionMark }
+                '%' => {
+                    self.advance();
+                    Token::Mod
+                }
+
                 _ => {
                     self.advance();
                     Token::Unknown(ch)
