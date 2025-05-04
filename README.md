@@ -123,6 +123,10 @@ cd c4_rust_masafi
 cd src
 cargo run
 
+Expected Output (based on source code available)
+33
+Program finished. Final result = 33
+
 ### Testing the Code
 cargo test
 
