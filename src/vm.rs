@@ -14,6 +14,8 @@ pub struct Function {
 pub enum Value {
     Int(i32),
     Str(String),
+    Array(Vec<Value>),
+
 }
 
 pub struct Vm {
@@ -44,6 +46,7 @@ impl Vm {
         match &self.last_result {
             Value::Int(i) => *i,
             Value::Str(_) => 0,
+            Value::Array(_) => 0, // Default to 0 for arrays
         }
     }
 
@@ -123,8 +126,20 @@ impl Vm {
                 match val {
                     Value::Int(i) => println!("{}", i),
                     Value::Str(s) => println!("{}", s),
+                    Value::Array(arr) => {
+                        let display = arr.iter()
+                                         .map(|v| match v {
+                                             Value::Int(i) => i.to_string(),
+                                             Value::Str(s) => format!("\"{}\"", s),
+                                             _ => String::from("?"),
+                                         })
+                                         .collect::<Vec<_>>()
+                                         .join(", ");
+                        println!("[{}]", display);
+                    }
                 }
             }
+            
             Stmt::ExprStmt(expr) => {
                 self.eval_expr(expr);
             }
@@ -135,6 +150,7 @@ impl Vm {
         match self.eval_expr(expr) {
             Value::Int(i) => i != 0,
             Value::Str(_) => true,
+            Value::Array(_) => true, // Arrays are considered "truthy"
         }
     }
 
@@ -163,6 +179,29 @@ impl Vm {
                 match addr {
                     Value::Int(fake_ptr) => Value::Int(fake_ptr / 1000),
                     _ => panic!("Invalid pointer dereference"),
+                }
+            }
+            Expr::ArrayLiteral(elements) => {
+                // Evaluate all elements in the array
+                let evaluated = elements.into_iter()
+                    .map(|e| self.eval_expr(e))
+                    .collect::<Vec<_>>();
+                // You must define a new Value variant to hold array values
+                Value::Array(evaluated)
+            }
+            
+            Expr::ArrayIndex(array_expr, index_expr) => {
+                let array_val = self.eval_expr(*array_expr);
+                let index_val = self.eval_expr(*index_expr);
+                let idx = match index_val {
+                    Value::Int(i) => i as usize,
+                    _ => panic!("Array index must be an integer"),
+                };
+                match array_val {
+                    Value::Array(vec) => vec.get(idx).cloned().unwrap_or_else(|| {
+                        panic!("Array index out of bounds: {}", idx)
+                    }),
+                    _ => panic!("Attempted to index non-array value"),
                 }
             }
             Expr::PreInc(expr) => {
@@ -213,19 +252,30 @@ impl Vm {
                             *val -= 1;
                             return Value::Int(original);
                         }
-                    }
+                    }   
                     panic!("Variable '{}' not found", name);
                 } else {
                     panic!("-- requires a variable");
                 }
             }
             Expr::SizeOf(t) => {
-                let size = match t {
+                let size: i32 = match t {
                     Type::Int => 4,
                     Type::Char => 1,
                     Type::Pointer(_) => 8,
                     Type::Void => 0,
+                    Type::Array(elem_type, len) => {
+                        let elem_size = match *elem_type {
+                            Type::Int => 4,
+                            Type::Char => 1,
+                            Type::Pointer(_) => 8,
+                            Type::Void => 0,
+                            Type::Array(_, _) => panic!("Nested arrays not supported in sizeof"),
+                        };
+                        elem_size * (len as i32)
+                    }
                 };
+                
                 Value::Int(size)
             }
             Expr::Cast(to_type, expr) => {
@@ -309,6 +359,7 @@ impl Vm {
                     UnOp::Not => match val {
                         Value::Int(i) => Value::Int(if i == 0 { 1 } else { 0 }),
                         Value::Str(_) => Value::Int(0),
+                        Value::Array(_) => panic!("Cannot apply 'Not' operator to an array"),
                     },
                 }
             }
@@ -348,22 +399,44 @@ impl Vm {
             }
         }
     }
-
     fn handle_assign(&mut self, left: Expr, right: Expr) -> Value {
-        if let Expr::Variable(name) = left {
-            let val = self.eval_expr(right);
-            for scope in self.variables.iter_mut().rev() {
-                if scope.contains_key(&name) {
-                    scope.insert(name.clone(), val.clone());
-                    return val;
+        match left {
+            Expr::Variable(name) => {
+                let val = self.eval_expr(right);
+                for scope in self.variables.iter_mut().rev() {
+                    if scope.contains_key(&name) {
+                        scope.insert(name.clone(), val.clone());
+                        return val;
+                    }
                 }
+                self.variables.last_mut().unwrap().insert(name, val.clone());
+                val
             }
-            self.variables.last_mut().unwrap().insert(name, val.clone());
-            val
-        } else {
-            panic!("Left-hand side of assignment must be a variable");
+            Expr::ArrayIndex(array_expr, index_expr) => {
+                let array_name = match *array_expr {
+                    Expr::Variable(name) => name,
+                    _ => panic!("Left-hand side must be a variable array reference"),
+                };
+                let index = match self.eval_expr(*index_expr) {
+                    Value::Int(i) => i as usize,
+                    _ => panic!("Array index must be an integer"),
+                };
+                let val = self.eval_expr(right);
+                for scope in self.variables.iter_mut().rev() {
+                    if let Some(Value::Array(ref mut vec)) = scope.get_mut(&array_name) {
+                        if index >= vec.len() {
+                            panic!("Array index {} out of bounds", index);
+                        }
+                        vec[index] = val.clone();
+                        return val;
+                    }
+                }
+                panic!("Array '{}' not found", array_name);
+            }
+            _ => panic!("Left-hand side of assignment must be a variable or array element"),
         }
     }
+    
 
     
 }
@@ -849,6 +922,90 @@ fn test_bitwise_operations() {
     ";
     assert_eq!(run(code), 29);
 }
+
+#[test]
+fn test_print_array() {
+    let code = r#"
+        let x = [1, 2, 3];
+        print(x); // should print: [1, 2, 3]
+        return x[1]; // return middle element to confirm indexing
+    "#;
+
+    let lexer = Lexer::new(code);
+    let mut vm = Vm::new();
+    let mut parser = Parser::new(lexer, &mut vm);
+    let stmts = parser.parse();
+
+    for stmt in stmts {
+        vm.execute(stmt);
+    }
+
+    assert_eq!(vm.get_result(), 2); // confirm array indexing works
+}
+
+#[test]
+fn test_pointer_fake_deref() {
+    let code = "
+        let x = 42;
+        let p = &x;
+        let y = *p;
+        return y;
+    ";
+    assert_eq!(run(code), 42);
+}
+
+
+#[test]
+fn test_pointer_identity() {
+    let code = "
+        let x = 123;
+        let ptr = &x;
+        return *ptr + 1;
+    ";
+    assert_eq!(run(code), 124);
+}
+
+#[test]
+fn test_array_assignment() {
+    let code = "
+        let arr = [0, 0, 0];
+        arr[1] = 42;
+        return arr[1];
+    ";
+    assert_eq!(run(code), 42);
+}
+
+#[test]
+#[should_panic(expected = "Nested arrays not supported")]
+fn test_nested_array_sizeof() {
+    let code = "return sizeof(int[3][2]);";
+    run(code);
+}
+
+#[test]
+fn test_pointer_casting() {
+    let code = "
+        let x = 5;
+        let ptr = &x;
+        let val = (int)ptr;
+        return val / 1000;  // should return original value of x
+    ";
+    assert_eq!(run(code), 5);
+}
+
+
+#[test]
+fn test_enum_inside_function() {
+    let code = "
+        enum { A = 1, B = 2 };
+        int sum() {
+            return A + B;
+        }
+        return sum();
+    ";
+    assert_eq!(run(code), 3);
+}
+
 
 
     

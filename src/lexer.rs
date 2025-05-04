@@ -11,6 +11,8 @@ pub enum Token {
     CloseParen,
     OpenBrace,
     CloseBrace,
+    OpenBracket,   // [
+        CloseBracket,  // ]
     Semicolon,
     Assign,
     Add,
@@ -128,6 +130,7 @@ impl Lexer {
                         Token::Add
                     }
                 }
+                
     
                 '-' => {
                     self.advance();
@@ -245,6 +248,9 @@ impl Lexer {
                 ')' => { self.advance(); Token::CloseParen }
                 '{' => { self.advance(); Token::OpenBrace }
                 '}' => { self.advance(); Token::CloseBrace }
+                '[' => { self.advance(); Token::OpenBracket }
+']' => { self.advance(); Token::CloseBracket }
+
                 ';' => { self.advance(); Token::Semicolon }
                 ',' => { self.advance(); Token::Comma }
                 ':' => { self.advance(); Token::Colon }

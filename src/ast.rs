@@ -8,6 +8,8 @@ pub enum Expr {
     Variable(String),
     Boolean(bool),
     Char(char),
+    ArrayLiteral(Vec<Expr>),                   // {1, 2, 3}
+ArrayIndex(Box<Expr>, Box<Expr>),   
     StringLiteral(String),
     PreInc(Box<Expr>),   // ++x
     PreDec(Box<Expr>),   // --x
@@ -88,6 +90,8 @@ pub enum Type {
     Char,
     Pointer(Box<Type>),
     Void, // ✅ New
+    Array(Box<Type>, usize),                   // int[3]
+
 }
 
 

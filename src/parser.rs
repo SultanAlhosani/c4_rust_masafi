@@ -214,19 +214,24 @@ impl<'a> Parser<'a> {
         if self.current_token == Token::Assign {
             self.next();
             let rhs = self.parse_assignment();
-            if let Expr::Variable(name) = lhs {
-                Expr::BinaryOp {
+            match lhs {
+                Expr::Variable(name) => Expr::BinaryOp {
                     op: BinOp::Assign,
                     left: Box::new(Expr::Variable(name)),
                     right: Box::new(rhs),
-                }
-            } else {
-                panic!("Invalid assignment target");
+                },
+                Expr::ArrayIndex(array, index) => Expr::BinaryOp {
+                    op: BinOp::Assign,
+                    left: Box::new(Expr::ArrayIndex(array, index)),
+                    right: Box::new(rhs),
+                },
+                _ => panic!("Invalid assignment target"),
             }
         } else {
             lhs
         }
     }
+    
 
     fn parse_logic_or(&mut self) -> Expr {
         let mut lhs = self.parse_logic_and();
@@ -375,6 +380,16 @@ impl<'a> Parser<'a> {
                 let expr = self.parse_unary();
                 Expr::PreDec(Box::new(expr))
             }
+            Token::BitAnd => {  // ✅ Add this
+                self.next();
+                let expr = self.parse_unary();
+                Expr::AddressOf(Box::new(expr))
+            }
+            Token::Mul => {     // ✅ For dereference
+                self.next();
+                let expr = self.parse_unary();
+                Expr::Deref(Box::new(expr))
+            }
             _ => self.parse_primary(),
         };
         self.parse_postfix(expr)
@@ -405,6 +420,7 @@ impl<'a> Parser<'a> {
             Token::False => { self.next(); Expr::Boolean(false) }
             Token::Char(c) => { let ch = *c; self.next(); Expr::Char(ch) }
             Token::StringLiteral(s) => { let val = s.clone(); self.next(); Expr::StringLiteral(val) }
+    
             Token::Sizeof => {
                 self.next();
                 self.expect_token(Token::OpenParen, "Expected '(' after sizeof", line, col);
@@ -412,9 +428,42 @@ impl<'a> Parser<'a> {
                 self.expect_token(Token::CloseParen, "Expected ')' after type", line, col);
                 Expr::SizeOf(typ)
             }
+    
+            Token::OpenBrace => {
+                self.next();
+                let mut elements = Vec::new();
+                while self.current_token != Token::CloseBrace {
+                    elements.push(self.expression());
+                    if self.current_token == Token::Comma {
+                        self.next();
+                    } else {
+                        break;
+                    }
+                }
+                self.expect_token(Token::CloseBrace, "Expected '}' after array literal", line, col);
+                Expr::ArrayLiteral(elements)
+            }
+    
+            // ✅ Support array literals like [1, 2, 3]
+            Token::OpenBracket => {
+                self.next();
+                let mut elements = Vec::new();
+                while self.current_token != Token::CloseBracket {
+                    elements.push(self.expression());
+                    if self.current_token == Token::Comma {
+                        self.next();
+                    } else {
+                        break;
+                    }
+                }
+                self.expect_token(Token::CloseBracket, "Expected ']' after array literal", line, col);
+                Expr::ArrayLiteral(elements)
+            }
+    
             Token::Identifier(name) => {
                 let id = name.clone();
                 self.next();
+    
                 if self.current_token == Token::OpenParen {
                     self.next();
                     let mut args = Vec::new();
@@ -426,10 +475,18 @@ impl<'a> Parser<'a> {
                     }
                     self.expect_token(Token::CloseParen, "Expected ')' after arguments", line, col);
                     Expr::FunctionCall { name: id, args }
-                } else {
+                }
+                else if self.current_token == Token::OpenBracket {
+                    self.next();
+                    let index_expr = self.expression();
+                    self.expect_token(Token::CloseBracket, "Expected ']' after array index", line, col);
+                    Expr::ArrayIndex(Box::new(Expr::Variable(id)), Box::new(index_expr))
+                }
+                else {
                     Expr::Variable(id)
                 }
             }
+    
             Token::OpenParen => {
                 self.next();
                 let is_type = match &self.current_token {
@@ -448,27 +505,42 @@ impl<'a> Parser<'a> {
                     expr
                 }
             }
+    
             _ => panic!("Unexpected token at line {}, column {}: {:?}", line, col, self.current_token),
         }
     }
-
+    
     fn parse_type(&mut self) -> Option<Type> {
-        match self.current_token {
+        let mut base = match self.current_token {
             Token::Identifier(ref name) => match name.as_str() {
-                "int" => { self.next(); Some(Type::Int) }
-                "char" => { self.next(); Some(Type::Char) }
-                "bool" => { self.next(); Some(Type::Char) }
-                "str" => { self.next(); Some(Type::Pointer(Box::new(Type::Char))) }
-                "void" => { self.next(); Some(Type::Void) }
+                "int" => { self.next(); Type::Int }
+                "char" => { self.next(); Type::Char }
+                "bool" => { self.next(); Type::Char }
+                "str" => { self.next(); Type::Pointer(Box::new(Type::Char)) }
+                "void" => { self.next(); Type::Void }
                 _ => panic!("Unknown type '{}'", name),
             },
             Token::Mul => {
                 self.next();
-                self.parse_type().map(|t| Type::Pointer(Box::new(t)))
+                return self.parse_type().map(|t| Type::Pointer(Box::new(t)));
             }
-            _ => None,
+            _ => return None,
+        };
+    
+        while self.current_token == Token::OpenBracket {
+            self.next();
+            if let Token::Num(n) = self.current_token {
+                self.next();
+                self.expect_token(Token::CloseBracket, "Expected ']' after array size", 0, 0);
+                base = Type::Array(Box::new(base), n as usize);
+            } else {
+                panic!("Expected array size inside brackets");
+            }
         }
+    
+        Some(base)
     }
+    
 
     fn block(&mut self) -> Stmt {
         self.expect_token(Token::OpenBrace, "Expected '{' to start block", 0, 0);
