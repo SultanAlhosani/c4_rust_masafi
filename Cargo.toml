@@ -1,6 +1,11 @@
 [package]
 name = "c4_rust_masafi"
 version = "0.1.0"
-edition = "2021"
+edition = "2018"
 
-[dependencies]
+[[bin]]
+name = "compiler"
+path = "src/main.rs"
+
+[dev-dependencies]
+assert_approx_eq = "1.0" 
