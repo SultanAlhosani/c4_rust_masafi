@@ -12,7 +12,6 @@ use std::fs;
 use vm::Vm;
 
 
-
 fn main() {
     // Read the source code from the C4 file.
     let source_code =
